@@ -5,7 +5,7 @@ import plotly.express as px
 import streamlit as st
 
 st.set_page_config(
-    page_title="National CCET Analytics Dashboard",
+    page_title="National CCET Policy Analytics Platform",
     layout="wide"
 )
 
@@ -84,7 +84,7 @@ def load_data() -> pd.DataFrame:
     df["Fiscal_Year"] = df["Fiscal_Year"].astype(int)
 
     text_cols = [
-        "Type", "DEPARTMENT", "GRIT TAGGING", "AGENCY",
+        "Type", "DEPARTMENT", "AGENCY",
         "PAP ID", "PAP Description", "TYPOLOGY ID", "TYPOLOGY Description"
     ]
 
@@ -141,10 +141,26 @@ def filter_dropdown(label, values):
     return st.sidebar.selectbox(label, ["All"] + opts)
 
 
-st.title("National CCET Data Analytics Dashboard")
+def safe_top_value(dataframe, group_col, value_col="TOTAL"):
+    if dataframe.empty:
+        return "No data", 0
+
+    temp = (
+        dataframe.groupby(group_col, as_index=False)[value_col]
+        .sum()
+        .sort_values(value_col, ascending=False)
+    )
+
+    if temp.empty:
+        return "No data", 0
+
+    return temp.iloc[0][group_col], temp.iloc[0][value_col]
+
+
+st.title("National CCET Policy Analytics Platform")
 st.caption(
     "Climate Change Expenditure Tagging PAP-level analytics | "
-    "FY2017–FY2026 | With National Plan and NDC Alignment Layer"
+    "FY2017–FY2026 | For DBM, CCC, NEDA, and Executive Policy Review"
 )
 
 df = load_data()
@@ -153,7 +169,6 @@ st.sidebar.header("Filters")
 
 year = filter_dropdown("Fiscal Year", df["Fiscal_Year"].unique())
 budget_type = filter_dropdown("Budget Type", df["Type"].unique())
-tagging = filter_dropdown("Institution Type", df["GRIT TAGGING"].unique())
 department = filter_dropdown("Department", df["DEPARTMENT"].unique())
 pillar = filter_dropdown("Climate Pillar", df["Climate Pillar"].unique())
 pdp_alignment = filter_dropdown(
@@ -170,9 +185,6 @@ if year != "All":
 if budget_type != "All":
     f = f[f["Type"] == budget_type]
 
-if tagging != "All":
-    f = f[f["GRIT TAGGING"] == tagging]
-
 if department != "All":
     f = f[f["DEPARTMENT"] == department]
 
@@ -187,25 +199,54 @@ if ndc_sector != "All":
 
 k1, k2, k3, k4, k5 = st.columns(5)
 
-k1.metric("Total Climate Budget", peso(f["TOTAL"].sum()))
-k2.metric("Adaptation", peso(f["ADAPTATION"].sum()))
-k3.metric("Mitigation", peso(f["MITIGATION"].sum()))
+total_budget = f["TOTAL"].sum()
+adaptation_total = f["ADAPTATION"].sum()
+mitigation_total = f["MITIGATION"].sum()
+
+k1.metric("Total Climate Budget", peso(total_budget))
+k2.metric("Adaptation", peso(adaptation_total))
+k3.metric("Mitigation", peso(mitigation_total))
 k4.metric("Agencies", f["AGENCY"].nunique())
 k5.metric("PAP Records", f["PAP ID"].nunique())
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-    "Executive Overview",
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+    "Executive Brief",
     "Budget Trends",
-    "Agency Explorer",
-    "Typology / NCCAP",
-    "National Plan Alignment",
+    "Agency Ranking",
+    "NCCAP Alignment",
+    "PDP / Executive Agenda",
     "NDC Sector Alignment",
-    "Compliance",
+    "Policy Insights",
+    "PAP Explorer",
     "Data Quality"
 ])
 
 with tab1:
-    st.subheader("Executive Overview")
+    st.subheader("Executive Brief")
+
+    total_budget = f["TOTAL"].sum()
+    adaptation_share = (f["ADAPTATION"].sum() / total_budget * 100) if total_budget else 0
+    mitigation_share = (f["MITIGATION"].sum() / total_budget * 100) if total_budget else 0
+
+    top_agency, top_agency_amount = safe_top_value(f, "AGENCY")
+    top_priority, top_priority_amount = safe_top_value(f, "NCCAP Priority")
+    top_sector, top_sector_amount = safe_top_value(f, "NDC Sector Alignment")
+
+    st.markdown(
+        f"""
+        ### Key Findings
+
+        The dashboard covers **{peso(total_budget)}** in climate-tagged PAPs across **{f["AGENCY"].nunique()} agencies** and **{f["PAP ID"].nunique()} PAP records**.
+
+        The portfolio is **adaptation-heavy**, with **{adaptation_share:.2f}%** for adaptation and **{mitigation_share:.2f}%** for mitigation.
+
+        The top spending agency is **{top_agency}** with **{peso(top_agency_amount)}**.
+
+        The largest NCCAP priority is **{top_priority}** with **{peso(top_priority_amount)}**.
+
+        The largest estimated NDC sector is **{top_sector}** with **{peso(top_sector_amount)}**.
+        """
+    )
 
     by_year = f.groupby("Fiscal_Year", as_index=False)[
         ["TOTAL", "ADAPTATION", "MITIGATION"]
@@ -224,38 +265,19 @@ with tab1:
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        long = by_year.melt(
-            id_vars="Fiscal_Year",
-            value_vars=["ADAPTATION", "MITIGATION"],
-            var_name="Pillar",
-            value_name="Amount"
+        alignment_summary = (
+            f.groupby("PDP / Executive Agenda Alignment", as_index=False)["TOTAL"]
+            .sum()
+            .sort_values("TOTAL", ascending=False)
         )
 
-        fig = px.bar(
-            long,
-            x="Fiscal_Year",
-            y="Amount",
-            color="Pillar",
-            barmode="group",
-            title="Adaptation vs Mitigation"
+        fig = px.pie(
+            alignment_summary,
+            names="PDP / Executive Agenda Alignment",
+            values="TOTAL",
+            title="National Plan Alignment Share"
         )
         st.plotly_chart(fig, use_container_width=True)
-
-    alignment_summary = (
-        f.groupby("PDP / Executive Agenda Alignment", as_index=False)["TOTAL"]
-        .sum()
-        .sort_values("TOTAL", ascending=False)
-    )
-
-    fig = px.pie(
-        alignment_summary,
-        names="PDP / Executive Agenda Alignment",
-        values="TOTAL",
-        title="National Plan Alignment Share"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.dataframe(by_year.sort_values("Fiscal_Year"), use_container_width=True)
 
 with tab2:
     st.subheader("Budget Trends")
@@ -288,12 +310,33 @@ with tab2:
         )
         st.plotly_chart(fig, use_container_width=True)
 
+    pillar_year = (
+        f.groupby("Fiscal_Year", as_index=False)[["ADAPTATION", "MITIGATION"]]
+        .sum()
+        .melt(
+            id_vars="Fiscal_Year",
+            value_vars=["ADAPTATION", "MITIGATION"],
+            var_name="Pillar",
+            value_name="Amount"
+        )
+    )
+
+    fig = px.bar(
+        pillar_year,
+        x="Fiscal_Year",
+        y="Amount",
+        color="Pillar",
+        barmode="group",
+        title="Adaptation vs Mitigation by Fiscal Year"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
     st.dataframe(by_year, use_container_width=True)
 
 with tab3:
-    st.subheader("Agency Explorer")
+    st.subheader("Agency Ranking")
 
-    top_n = st.slider("Number of agencies to show", 5, 50, 15)
+    top_n = st.slider("Number of agencies to show", 5, 50, 20)
 
     agency_sum = (
         f.groupby(["DEPARTMENT", "AGENCY"], as_index=False)["TOTAL"]
@@ -313,28 +356,25 @@ with tab3:
 
     st.plotly_chart(fig, use_container_width=True)
 
-    selected_agency = st.selectbox(
-        "Inspect agency",
-        ["All"] + sorted(f["AGENCY"].dropna().unique().tolist())
+    agency_alignment = (
+        f.groupby(["AGENCY", "PDP / Executive Agenda Alignment"], as_index=False)["TOTAL"]
+        .sum()
+        .sort_values("TOTAL", ascending=False)
+        .head(40)
     )
 
-    table = f if selected_agency == "All" else f[f["AGENCY"] == selected_agency]
-
-    cols = [
-        "Fiscal_Year", "Type", "DEPARTMENT", "GRIT TAGGING", "AGENCY",
-        "PAP ID", "PAP Description", "TYPOLOGY ID", "NCCAP Priority",
-        "PDP / Executive Agenda Alignment", "NDC Sector Alignment",
-        "ADAPTATION", "MITIGATION", "TOTAL"
-    ]
-
-    st.dataframe(
-        table[cols].sort_values(["Fiscal_Year", "TOTAL"], ascending=[True, False]),
-        use_container_width=True,
-        height=500
+    fig = px.bar(
+        agency_alignment,
+        x="TOTAL",
+        y="AGENCY",
+        color="PDP / Executive Agenda Alignment",
+        orientation="h",
+        title="Top Agencies by National Plan Alignment"
     )
+    st.plotly_chart(fig, use_container_width=True)
 
 with tab4:
-    st.subheader("Typology / NCCAP Analysis")
+    st.subheader("NCCAP Alignment")
 
     c1, c2 = st.columns(2)
 
@@ -377,7 +417,7 @@ with tab4:
     st.dataframe(typology, use_container_width=True, height=500)
 
 with tab5:
-    st.subheader("National Plan / Executive Agenda Alignment")
+    st.subheader("PDP / Executive Agenda Alignment")
 
     st.info(
         "This module uses keyword-based classification to estimate whether PAPs "
@@ -385,13 +425,13 @@ with tab5:
         "sustainable development, food security, water, energy, and ecosystem priorities."
     )
 
-    c1, c2 = st.columns(2)
-
     alignment = (
         f.groupby("PDP / Executive Agenda Alignment", as_index=False)["TOTAL"]
         .sum()
         .sort_values("TOTAL", ascending=False)
     )
+
+    c1, c2 = st.columns(2)
 
     with c1:
         fig = px.pie(
@@ -402,38 +442,21 @@ with tab5:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    agency_alignment = (
-        f.groupby(["AGENCY", "PDP / Executive Agenda Alignment"], as_index=False)["TOTAL"]
-        .sum()
-        .sort_values("TOTAL", ascending=False)
-        .head(30)
-    )
-
-    with c2:
-        fig = px.bar(
-            agency_alignment,
-            x="TOTAL",
-            y="AGENCY",
-            color="PDP / Executive Agenda Alignment",
-            orientation="h",
-            title="Top Agencies by National Plan Alignment"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
     alignment_year = (
         f.groupby(["Fiscal_Year", "PDP / Executive Agenda Alignment"], as_index=False)["TOTAL"]
         .sum()
     )
 
-    fig = px.bar(
-        alignment_year,
-        x="Fiscal_Year",
-        y="TOTAL",
-        color="PDP / Executive Agenda Alignment",
-        barmode="stack",
-        title="National Plan Alignment Trend by Fiscal Year"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        fig = px.bar(
+            alignment_year,
+            x="Fiscal_Year",
+            y="TOTAL",
+            color="PDP / Executive Agenda Alignment",
+            barmode="stack",
+            title="National Plan Alignment Trend"
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
     st.dataframe(
         f[[
@@ -494,37 +517,94 @@ with tab6:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    st.dataframe(
-        f[[
-            "Fiscal_Year", "Type", "DEPARTMENT", "AGENCY",
-            "PAP ID", "PAP Description", "NDC Sector Alignment", "TOTAL"
-        ]].sort_values("TOTAL", ascending=False),
-        use_container_width=True,
-        height=500
+with tab7:
+    st.subheader("Policy Insights for DBM, CCC, and NEDA")
+
+    total_budget = f["TOTAL"].sum()
+    adaptation_share = (f["ADAPTATION"].sum() / total_budget * 100) if total_budget else 0
+    mitigation_share = (f["MITIGATION"].sum() / total_budget * 100) if total_budget else 0
+
+    top_agency, top_agency_amount = safe_top_value(f, "AGENCY")
+    top_priority, top_priority_amount = safe_top_value(f, "NCCAP Priority")
+    top_sector, top_sector_amount = safe_top_value(f, "NDC Sector Alignment")
+
+    st.markdown("### Key Policy Findings")
+
+    st.write(
+        f"""
+        **1. Climate budget concentration:** Total climate-tagged budget covered by the dashboard is **{peso(total_budget)}**.
+
+        **2. Adaptation-heavy portfolio:** Around **{adaptation_share:.2f}%** of the tagged budget is for adaptation, while **{mitigation_share:.2f}%** is for mitigation.
+
+        **3. Top spending agency:** The largest climate-tagged allocation is from **{top_agency}**, with **{peso(top_agency_amount)}**.
+
+        **4. Main NCCAP priority:** The biggest thematic allocation is under **{top_priority}**, with **{peso(top_priority_amount)}**.
+
+        **5. Main NDC sector:** The largest estimated NDC sector allocation is **{top_sector}**, with **{peso(top_sector_amount)}**.
+        """
     )
 
-with tab7:
-    st.subheader("Compliance / Participation Proxy")
+    st.markdown("### Suggested Policy Questions")
+
+    st.write(
+        """
+        - Are climate-tagged PAPs concentrated in a few agencies or broadly mainstreamed across government?
+        - Is the national climate budget overly adaptation-heavy compared with mitigation needs?
+        - Are PAPs aligned with PDP 2023–2028 climate action and disaster resilience priorities?
+        - Which agencies have high climate allocations but weak policy alignment?
+        - Which NCCAP priorities remain underfunded?
+        - Which NDC sectors require stronger budget support?
+        """
+    )
 
     participation = (
-        f.groupby(["Fiscal_Year", "GRIT TAGGING"], as_index=False)["AGENCY"]
+        f.groupby("Fiscal_Year", as_index=False)["AGENCY"]
         .nunique()
         .rename(columns={"AGENCY": "Participating Agencies"})
     )
 
-    fig = px.bar(
+    fig = px.line(
         participation,
         x="Fiscal_Year",
         y="Participating Agencies",
-        color="GRIT TAGGING",
-        barmode="stack",
-        title="Participating Agencies by Institution Type"
+        markers=True,
+        title="Agency Participation Trend"
     )
 
     st.plotly_chart(fig, use_container_width=True)
     st.dataframe(participation, use_container_width=True)
 
 with tab8:
+    st.subheader("PAP Explorer")
+
+    search = st.text_input("Search PAP Description, Agency, Department, or Typology")
+
+    explorer = f.copy()
+
+    if search:
+        s = search.lower()
+        explorer = explorer[
+            explorer["PAP Description"].str.lower().str.contains(s, na=False) |
+            explorer["AGENCY"].str.lower().str.contains(s, na=False) |
+            explorer["DEPARTMENT"].str.lower().str.contains(s, na=False) |
+            explorer["TYPOLOGY Description"].str.lower().str.contains(s, na=False)
+        ]
+
+    cols = [
+        "Fiscal_Year", "Type", "DEPARTMENT", "AGENCY",
+        "PAP ID", "PAP Description", "TYPOLOGY ID", "TYPOLOGY Description",
+        "NCCAP Priority", "Climate Pillar",
+        "PDP / Executive Agenda Alignment", "NDC Sector Alignment",
+        "ADAPTATION", "MITIGATION", "TOTAL"
+    ]
+
+    st.dataframe(
+        explorer[cols].sort_values("TOTAL", ascending=False),
+        use_container_width=True,
+        height=600
+    )
+
+with tab9:
     st.subheader("Data Quality Checks")
 
     checks = {
