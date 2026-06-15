@@ -29,6 +29,10 @@ def load_data() -> pd.DataFrame:
         st.error("CSV dataset not found. Please upload it as `data/ccet_data.csv`.")
         st.stop()
 
+    if os.path.getsize(DATA_PATH) == 0:
+        st.error("`data/ccet_data.csv` is empty. Please re-upload the real CSV file.")
+        st.stop()
+
     df = pd.read_csv(DATA_PATH, encoding="utf-8-sig")
     df.columns = [str(c).strip() for c in df.columns]
     df = df.rename(columns={"ADAPTION": "ADAPTATION"})
@@ -83,10 +87,9 @@ def peso(value):
     return f"₱{value:,.0f}"
 
 
-def filter_multiselect(label, values, default_all=True):
+def filter_dropdown(label, values):
     opts = sorted([v for v in values if str(v).strip() != ""])
-    default = opts if default_all else []
-    return st.sidebar.multiselect(label, opts, default=default)
+    return st.sidebar.selectbox(label, ["All"] + opts)
 
 
 st.title("National CCET Data Analytics Dashboard")
@@ -96,28 +99,28 @@ df = load_data()
 
 st.sidebar.header("Filters")
 
-years = filter_multiselect("Fiscal Year", df["Fiscal_Year"].unique())
-types = filter_multiselect("Budget Type", df["Type"].unique())
-tagging = filter_multiselect("Institution Type", df["GRIT TAGGING"].unique())
-departments = filter_multiselect("Department", df["DEPARTMENT"].unique())
-pillars = filter_multiselect("Climate Pillar", df["Climate Pillar"].unique())
+year = filter_dropdown("Fiscal Year", df["Fiscal_Year"].unique())
+budget_type = filter_dropdown("Budget Type", df["Type"].unique())
+tagging = filter_dropdown("Institution Type", df["GRIT TAGGING"].unique())
+department = filter_dropdown("Department", df["DEPARTMENT"].unique())
+pillar = filter_dropdown("Climate Pillar", df["Climate Pillar"].unique())
 
 f = df.copy()
 
-if years:
-    f = f[f["Fiscal_Year"].isin(years)]
+if year != "All":
+    f = f[f["Fiscal_Year"] == year]
 
-if types:
-    f = f[f["Type"].isin(types)]
+if budget_type != "All":
+    f = f[f["Type"] == budget_type]
 
-if tagging:
-    f = f[f["GRIT TAGGING"].isin(tagging)]
+if tagging != "All":
+    f = f[f["GRIT TAGGING"] == tagging]
 
-if departments:
-    f = f[f["DEPARTMENT"].isin(departments)]
+if department != "All":
+    f = f[f["DEPARTMENT"] == department]
 
-if pillars:
-    f = f[f["Climate Pillar"].isin(pillars)]
+if pillar != "All":
+    f = f[f["Climate Pillar"] == pillar]
 
 k1, k2, k3, k4, k5 = st.columns(5)
 
@@ -272,10 +275,10 @@ with tab4:
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        pillar = f.groupby("Climate Pillar", as_index=False)["TOTAL"].sum()
+        pillar_df = f.groupby("Climate Pillar", as_index=False)["TOTAL"].sum()
 
         fig = px.pie(
-            pillar,
+            pillar_df,
             values="TOTAL",
             names="Climate Pillar",
             title="Budget Share by Climate Pillar"
