@@ -1,4 +1,5 @@
 import os
+import zipfile
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -9,7 +10,10 @@ st.set_page_config(
     layout="wide"
 )
 
-DATA_PATH = "data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.xlsx"
+DATA_PATHS = [
+    "data/ccet_data.csv",
+    "data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.xlsx",
+]
 
 NCCAP_PRIORITY = {
     "1": "Food Security",
@@ -22,26 +26,61 @@ NCCAP_PRIORITY = {
     "8": "Cross-Cutting",
 }
 
+
+def find_data_file():
+    for path in DATA_PATHS:
+        if os.path.exists(path):
+            return path
+    return None
+
+
 @st.cache_data(show_spinner="Loading CCET dataset...")
-def load_data(path: str = DATA_PATH) -> pd.DataFrame:
-    if not os.path.exists(path):
-        st.error(f"Dataset not found: {path}")
+def load_data() -> pd.DataFrame:
+    path = find_data_file()
+
+    if path is None:
+        st.error(
+            "Dataset not found. Upload either `data/ccet_data.csv` "
+            "or `data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.xlsx`."
+        )
         st.stop()
 
-    xls = pd.ExcelFile(path, engine="openpyxl")
-    sheet = "Tagged" if "Tagged" in xls.sheet_names else xls.sheet_names[0]
+    try:
+        if path.endswith(".csv"):
+            df = pd.read_csv(path)
 
-    df = pd.read_excel(path, sheet_name=sheet, engine="openpyxl")
+        elif path.endswith(".xlsx"):
+            if not zipfile.is_zipfile(path):
+                st.error(
+                    "Your Excel file is not a valid .xlsx file. "
+                    "This usually means GitHub uploaded a Git LFS pointer instead of the actual Excel file. "
+                    "Please convert the Excel file to CSV and upload it as `data/ccet_data.csv`."
+                )
+                st.stop()
+
+            xls = pd.ExcelFile(path, engine="openpyxl")
+            sheet = "Tagged" if "Tagged" in xls.sheet_names else xls.sheet_names[0]
+            df = pd.read_excel(path, sheet_name=sheet, engine="openpyxl")
+
+        else:
+            st.error("Unsupported file type. Please use CSV or XLSX.")
+            st.stop()
+
+    except Exception as e:
+        st.error("Failed to load dataset. Please check the file format.")
+        st.exception(e)
+        st.stop()
+
     df.columns = [str(c).strip() for c in df.columns]
-
     df = df.rename(columns={"ADAPTION": "ADAPTATION"})
 
-    for col in ["Fiscal_Year", "ADAPTATION", "MITIGATION", "TOTAL"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    required_numeric = ["Fiscal_Year", "ADAPTATION", "MITIGATION", "TOTAL"]
+    for col in required_numeric:
+        if col not in df.columns:
+            df[col] = 0
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-    if "Fiscal_Year" in df.columns:
-        df["Fiscal_Year"] = df["Fiscal_Year"].astype(int)
+    df["Fiscal_Year"] = df["Fiscal_Year"].astype(int)
 
     text_cols = [
         "Type", "DEPARTMENT", "GRIT TAGGING", "AGENCY",
@@ -49,27 +88,25 @@ def load_data(path: str = DATA_PATH) -> pd.DataFrame:
     ]
 
     for col in text_cols:
-        if col in df.columns:
-            df[col] = (
-                df[col]
-                .astype(str)
-                .replace({"nan": "", "None": ""})
-                .str.strip()
-            )
+        if col not in df.columns:
+            df[col] = ""
 
-    if "TYPOLOGY ID" in df.columns:
-        typo = df["TYPOLOGY ID"].str.upper()
-
-        df["Climate Pillar"] = np.where(
-            typo.str.startswith("M"), "Mitigation",
-            np.where(typo.str.startswith("A"), "Adaptation", "Unclassified")
+        df[col] = (
+            df[col]
+            .astype(str)
+            .replace({"nan": "", "None": ""})
+            .str.strip()
         )
 
-        df["NCCAP Code"] = typo.str.extract(r"^[AM](\d)", expand=False).fillna("")
-        df["NCCAP Priority"] = df["NCCAP Code"].map(NCCAP_PRIORITY).fillna("Unclassified")
-    else:
-        df["Climate Pillar"] = "Unclassified"
-        df["NCCAP Priority"] = "Unclassified"
+    typo = df["TYPOLOGY ID"].str.upper()
+
+    df["Climate Pillar"] = np.where(
+        typo.str.startswith("M"), "Mitigation",
+        np.where(typo.str.startswith("A"), "Adaptation", "Unclassified")
+    )
+
+    df["NCCAP Code"] = typo.str.extract(r"^[AM](\d)", expand=False).fillna("")
+    df["NCCAP Priority"] = df["NCCAP Code"].map(NCCAP_PRIORITY).fillna("Unclassified")
 
     return df
 
@@ -101,24 +138,21 @@ df = load_data()
 st.sidebar.header("Filters")
 
 years = filter_multiselect("Fiscal Year", df["Fiscal_Year"].unique())
-types = filter_multiselect("Budget Type", df["Type"].unique()) if "Type" in df.columns else []
-tagging = filter_multiselect("Institution Type", df["GRIT TAGGING"].unique()) if "GRIT TAGGING" in df.columns else []
-departments = filter_multiselect("Department", df["DEPARTMENT"].unique()) if "DEPARTMENT" in df.columns else []
+types = filter_multiselect("Budget Type", df["Type"].unique())
+tagging = filter_multiselect("Institution Type", df["GRIT TAGGING"].unique())
+departments = filter_multiselect("Department", df["DEPARTMENT"].unique())
 pillars = filter_multiselect("Climate Pillar", df["Climate Pillar"].unique())
 
 f = df.copy()
 
-f = f[f["Fiscal_Year"].isin(years)]
-
+if years:
+    f = f[f["Fiscal_Year"].isin(years)]
 if types:
     f = f[f["Type"].isin(types)]
-
 if tagging:
     f = f[f["GRIT TAGGING"].isin(tagging)]
-
 if departments:
     f = f[f["DEPARTMENT"].isin(departments)]
-
 if pillars:
     f = f[f["Climate Pillar"].isin(pillars)]
 
@@ -127,8 +161,8 @@ k1, k2, k3, k4, k5 = st.columns(5)
 k1.metric("Total Climate Budget", peso(f["TOTAL"].sum()))
 k2.metric("Adaptation", peso(f["ADAPTATION"].sum()))
 k3.metric("Mitigation", peso(f["MITIGATION"].sum()))
-k4.metric("Agencies", f["AGENCY"].nunique() if "AGENCY" in f.columns else 0)
-k5.metric("PAP Records", f["PAP ID"].nunique() if "PAP ID" in f.columns else len(f))
+k4.metric("Agencies", f["AGENCY"].nunique())
+k5.metric("PAP Records", f["PAP ID"].nunique())
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Executive Overview",
@@ -242,12 +276,9 @@ with tab3:
     table = f if selected_agency == "All" else f[f["AGENCY"] == selected_agency]
 
     cols = [
-        c for c in [
-            "Fiscal_Year", "Type", "DEPARTMENT", "GRIT TAGGING", "AGENCY",
-            "PAP ID", "PAP Description", "TYPOLOGY ID", "NCCAP Priority",
-            "ADAPTATION", "MITIGATION", "TOTAL"
-        ]
-        if c in table.columns
+        "Fiscal_Year", "Type", "DEPARTMENT", "GRIT TAGGING", "AGENCY",
+        "PAP ID", "PAP Description", "TYPOLOGY ID", "NCCAP Priority",
+        "ADAPTATION", "MITIGATION", "TOTAL"
     ]
 
     st.dataframe(
@@ -302,33 +333,30 @@ with tab4:
 with tab5:
     st.subheader("Compliance / Participation Proxy")
 
-    if "GRIT TAGGING" in f.columns:
-        participation = (
-            f.groupby(["Fiscal_Year", "GRIT TAGGING"], as_index=False)["AGENCY"]
-            .nunique()
-            .rename(columns={"AGENCY": "Participating Agencies"})
-        )
+    participation = (
+        f.groupby(["Fiscal_Year", "GRIT TAGGING"], as_index=False)["AGENCY"]
+        .nunique()
+        .rename(columns={"AGENCY": "Participating Agencies"})
+    )
 
-        fig = px.bar(
-            participation,
-            x="Fiscal_Year",
-            y="Participating Agencies",
-            color="GRIT TAGGING",
-            barmode="stack",
-            title="Participating Agencies by Institution Type"
-        )
+    fig = px.bar(
+        participation,
+        x="Fiscal_Year",
+        y="Participating Agencies",
+        color="GRIT TAGGING",
+        barmode="stack",
+        title="Participating Agencies by Institution Type"
+    )
 
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(participation, use_container_width=True)
-    else:
-        st.info("GRIT TAGGING column not found.")
+    st.plotly_chart(fig, use_container_width=True)
+    st.dataframe(participation, use_container_width=True)
 
 with tab6:
     st.subheader("Data Quality Checks")
 
     checks = {
-        "Missing agency": f["AGENCY"].eq("").sum() if "AGENCY" in f.columns else 0,
-        "Missing typology ID": f["TYPOLOGY ID"].eq("").sum() if "TYPOLOGY ID" in f.columns else 0,
+        "Missing agency": f["AGENCY"].eq("").sum(),
+        "Missing typology ID": f["TYPOLOGY ID"].eq("").sum(),
         "Zero or blank total": (f["TOTAL"].fillna(0) == 0).sum(),
         "Adaptation + Mitigation ≠ Total": (
             (f["ADAPTATION"].fillna(0) + f["MITIGATION"].fillna(0) - f["TOTAL"].fillna(0)).abs() > 1
@@ -336,7 +364,7 @@ with tab6:
         "Duplicate PAP ID records": f.duplicated(
             subset=["Fiscal_Year", "Type", "AGENCY", "PAP ID", "TYPOLOGY ID"],
             keep=False
-        ).sum() if "PAP ID" in f.columns else 0,
+        ).sum(),
     }
 
     qc = pd.DataFrame([
@@ -350,9 +378,9 @@ with tab6:
 
     mask = pd.Series(False, index=f.index)
 
-    if issue_filter == "Missing agency" and "AGENCY" in f.columns:
+    if issue_filter == "Missing agency":
         mask = f["AGENCY"].eq("")
-    elif issue_filter == "Missing typology ID" and "TYPOLOGY ID" in f.columns:
+    elif issue_filter == "Missing typology ID":
         mask = f["TYPOLOGY ID"].eq("")
     elif issue_filter == "Zero or blank total":
         mask = f["TOTAL"].fillna(0) == 0
@@ -360,7 +388,7 @@ with tab6:
         mask = (
             (f["ADAPTATION"].fillna(0) + f["MITIGATION"].fillna(0) - f["TOTAL"].fillna(0)).abs() > 1
         )
-    elif issue_filter == "Duplicate PAP ID records" and "PAP ID" in f.columns:
+    elif issue_filter == "Duplicate PAP ID records":
         mask = f.duplicated(
             subset=["Fiscal_Year", "Type", "AGENCY", "PAP ID", "TYPOLOGY ID"],
             keep=False
