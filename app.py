@@ -375,7 +375,7 @@ with tab1:
     ## 1. Purpose of the Dashboard
 
     This dashboard is an interactive policy analytics platform for examining
-    Climate Change Expenditure Tagging data. It helps users understand how
+    Climate Change Expenditure Tagging data. It helps to understand how
     climate-tagged Programs, Activities, and Projects are distributed across
     fiscal years, departments, agencies, climate pillars, NCCAP priorities,
     and estimated policy alignment areas.
@@ -385,7 +385,7 @@ with tab1:
 
     ## 2. Intended Users
 
-    This dashboard may be used by:
+    This dashboard may be used by not limited to the following:
 
     - Climate Change Commission
     - Department of Budget and Management
@@ -395,6 +395,7 @@ with tab1:
     - Researchers
     - Academic institutions
     - Development partners
+
 
     ## 3. Dataset Options
 
