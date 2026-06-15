@@ -160,7 +160,7 @@ def safe_top_value(dataframe, group_col, value_col="TOTAL"):
 st.title("National CCET Policy Analytics Platform")
 st.caption(
     "Climate Change Expenditure Tagging PAP-level analytics | "
-    "FY2017–FY2026 | For DBM, CCC, NEDA, and Executive Policy Review"
+    "FY2017–FY2026 "
 )
 
 df = load_data()
