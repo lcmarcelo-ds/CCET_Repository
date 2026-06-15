@@ -7,10 +7,14 @@ import numpy as np
 import plotly.express as px
 import streamlit as st
 
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    REPORTLAB_AVAILABLE = True
+except ModuleNotFoundError:
+    REPORTLAB_AVAILABLE = False
 
 
 st.set_page_config(
@@ -49,24 +53,23 @@ NDC_SECTORS = {
     "Ecosystems": ["forest", "biodiversity", "ecosystem", "mangrove", "watershed"],
 }
 
-
 COLUMN_DICTIONARY = {
-    "Fiscal_Year": "Fiscal year of the climate-tagged PAP.",
-    "Type": "Budget classification, such as GAA, NEP, or Actual, depending on the dataset.",
-    "DEPARTMENT": "Parent department or government sector of the implementing agency.",
-    "AGENCY": "Government agency implementing or reporting the PAP.",
+    "Fiscal_Year": "Fiscal year covered by the climate-tagged PAP record.",
+    "Type": "Budget classification such as GAA, NEP, or other available budget type in the dataset.",
+    "DEPARTMENT": "Parent department or sector of the implementing agency.",
+    "AGENCY": "Implementing or reporting national government agency.",
     "PAP ID": "Program, Activity, or Project identifier.",
-    "PAP Description": "Description or title of the climate-tagged PAP.",
+    "PAP Description": "Name or description of the climate-tagged PAP.",
     "TYPOLOGY ID": "CCET typology code used to classify the PAP.",
-    "TYPOLOGY Description": "Description of the CCET typology used.",
+    "TYPOLOGY Description": "Description of the assigned CCET typology.",
     "ADAPTATION": "Amount tagged for climate change adaptation.",
     "MITIGATION": "Amount tagged for climate change mitigation.",
     "TOTAL": "Total climate-tagged amount.",
-    "Climate Pillar": "Derived classification: Adaptation, Mitigation, or Unclassified.",
-    "NCCAP Code": "Derived NCCAP priority code from the typology ID.",
+    "Climate Pillar": "Derived field based on Typology ID: Adaptation, Mitigation, or Unclassified.",
+    "NCCAP Code": "Derived NCCAP priority code from the Typology ID.",
     "NCCAP Priority": "Derived NCCAP thematic priority.",
-    "PDP / Executive Agenda Alignment": "Keyword-based proxy classification for national plan alignment.",
-    "NDC Sector Alignment": "Keyword-based proxy classification for estimated climate sector alignment.",
+    "PDP / Executive Agenda Alignment": "Keyword-based analytical proxy for possible alignment with national climate and development priorities.",
+    "NDC Sector Alignment": "Keyword-based analytical proxy for estimated sectoral climate alignment.",
 }
 
 
@@ -156,8 +159,7 @@ def load_default_data():
         st.error("`data/ccet_data.csv` is empty. Please re-upload the real CSV file.")
         st.stop()
 
-    df = read_csv(DATA_PATH)
-    return prepare_data(df)
+    return prepare_data(read_csv(DATA_PATH))
 
 
 def peso(value):
@@ -242,48 +244,11 @@ def generate_pdf_report(f, filters_used):
     story.append(Paragraph(summary, styles["Normal"]))
     story.append(Spacer(1, 16))
 
-    story.append(Paragraph("Key Indicators", styles["Heading2"]))
-    kpi_table = [
-        ["Indicator", "Value"],
-        ["Total Climate Budget", peso(total_budget)],
-        ["Adaptation", peso(adaptation_total)],
-        ["Mitigation", peso(mitigation_total)],
-        ["Agencies", str(agencies)],
-        ["PAP Records", str(paps)],
-    ]
-    table = Table(kpi_table, colWidths=[220, 260])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-    ]))
-    story.append(table)
-    story.append(Spacer(1, 16))
-
-    story.append(Paragraph("Top Agencies", styles["Heading2"]))
-    top_agencies = (
-        f.groupby("AGENCY", as_index=False)["TOTAL"]
-        .sum()
-        .sort_values("TOTAL", ascending=False)
-        .head(10)
-    )
-    agency_table = [["Agency", "Total"]] + [[r["AGENCY"], peso(r["TOTAL"])] for _, r in top_agencies.iterrows()]
-    table = Table(agency_table, colWidths=[350, 130])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-    ]))
-    story.append(table)
-    story.append(Spacer(1, 16))
-
-    story.append(Paragraph("Disclaimer", styles["Heading2"]))
+    story.append(Paragraph("Important Disclaimer", styles["Heading2"]))
     disclaimer = """
     This report is generated from the dataset currently loaded in the dashboard.
     NCCAP classifications are derived from CCET typology codes. PDP / Executive
-    Agenda Alignment and NDC Sector Alignment are keyword-based analytical proxies
-    and should not be treated as official validation by CCC, DBM, or NEDA/DEPDev.
-    Findings must be validated using official documents and agency submissions.
+    Agenda Alignment and NDC Sector Alignment are keyword-based analytical proxies.
     """
     story.append(Paragraph(disclaimer, styles["Normal"]))
 
@@ -294,8 +259,7 @@ def generate_pdf_report(f, filters_used):
 
 st.title("National CCET Policy Analytics Platform")
 st.caption(
-    "Climate Change Expenditure Tagging PAP-level analytics | "
-    "FY2017–FY2026 | For DBM, CCC, NEDA/DEPDev, and Executive Policy Review"
+    "Climate Change Expenditure Tagging PAP-level analytics  "
 )
 
 st.sidebar.header("Dataset")
@@ -358,13 +322,22 @@ filters_used = {
     "NDC Sector": ndc_sector,
 }
 
-pdf_buffer = generate_pdf_report(f, filters_used)
+if REPORTLAB_AVAILABLE:
+    pdf_buffer = generate_pdf_report(f, filters_used)
+    st.sidebar.download_button(
+        label="Download PDF Report",
+        data=pdf_buffer,
+        file_name="ccet_policy_analytics_report.pdf",
+        mime="application/pdf"
+    )
+else:
+    st.sidebar.warning("PDF export requires `reportlab`")
 
 st.sidebar.download_button(
-    label="Download PDF Report",
-    data=pdf_buffer,
-    file_name="ccet_policy_analytics_report.pdf",
-    mime="application/pdf"
+    label="Download Filtered CSV",
+    data=f.to_csv(index=False).encode("utf-8-sig"),
+    file_name="filtered_ccet_data.csv",
+    mime="text/csv"
 )
 
 k1, k2, k3, k4, k5 = st.columns(5)
@@ -380,6 +353,8 @@ k4.metric("Agencies", f["AGENCY"].nunique())
 k5.metric("PAP Records", f["PAP ID"].nunique())
 
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
+    "User Manual",
+    "Dataset Schema",
     "Executive Brief",
     "Budget Trends",
     "Agency Ranking",
@@ -388,12 +363,171 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
     "NDC Sector Alignment",
     "Policy Insights",
     "PAP Explorer",
-    "Data Quality",
-    "Dataset Schema",
-    "User Manual"
+    "Data Quality"
 ])
 
 with tab1:
+    st.subheader("User Manual and Guide")
+
+    st.markdown("""
+    # National CCET Policy Analytics Platform
+
+    ## 1. Purpose of the Dashboard
+
+    This dashboard is an interactive policy analytics platform for examining
+    Climate Change Expenditure Tagging data. It helps users understand how
+    climate-tagged Programs, Activities, and Projects are distributed across
+    fiscal years, departments, agencies, climate pillars, NCCAP priorities,
+    and estimated policy alignment areas.
+
+    The platform is intended to support evidence-based discussion, planning,
+    budgeting, monitoring, and policy review.
+
+    ## 2. Intended Users
+
+    This dashboard may be used by:
+
+    - Climate Change Commission
+    - Department of Budget and Management
+    - NEDA / DEPDev
+    - National Government Agencies
+    - Policy analysts
+    - Researchers
+    - Academic institutions
+    - Development partners
+
+    ## 3. Dataset Options
+
+    The dashboard automatically loads the default dataset from the GitHub
+    repository. Users may also upload a new CSV file using the sidebar.
+
+    If a CSV file is uploaded, all charts, tables, and indicators will update
+    based on the uploaded dataset.
+
+    ## 4. Sidebar Filters
+
+    The filters control the entire dashboard.
+
+    **Fiscal Year** filters records by year.
+
+    **Budget Type** filters by available budget classification, such as GAA,
+    NEP, or other dataset values.
+
+    **Department** filters the dashboard to a selected government department.
+
+    **Climate Pillar** filters records into Adaptation, Mitigation, or
+    Unclassified.
+
+    **PDP / Executive Agenda Alignment** filters records based on keyword-based
+    estimated alignment.
+
+    **NDC Sector** filters records based on estimated sector classification.
+
+    ## 5. KPI Cards
+
+    The five cards at the top summarize:
+
+    - Total Climate Budget
+    - Adaptation Budget
+    - Mitigation Budget
+    - Number of Agencies
+    - Number of PAP Records
+
+    These indicators change depending on selected filters.
+
+    ## 6. Dashboard Sections
+
+    **Dataset Schema** explains the structure of the dataset and the meaning
+    of each column.
+
+    **Executive Brief** provides a high-level summary for policy audiences.
+
+    **Budget Trends** shows changes in climate-tagged budgets across fiscal
+    years.
+
+    **Agency Ranking** identifies the agencies with the largest climate-tagged
+    budgets.
+
+    **NCCAP Alignment** analyzes allocations according to NCCAP priorities and
+    climate pillars.
+
+    **PDP / Executive Agenda** provides a keyword-based estimate of alignment
+    with national climate and development priorities.
+
+    **NDC Sector Alignment** estimates sectoral climate alignment.
+
+    **Policy Insights** summarizes major policy observations and suggested
+    questions.
+
+    **PAP Explorer** allows users to search and inspect individual records.
+
+    **Data Quality** checks for missing values, duplicate records, and budget
+    inconsistencies.
+
+    ## 7. How to Use the Dashboard
+
+    1. Review this User Manual.
+    2. Open Dataset Schema to understand the data structure.
+    3. Use the sidebar filters.
+    4. Review the KPI cards.
+    5. Explore the charts and tables.
+    6. Validate findings using PAP Explorer.
+    7. Check Data Quality before making policy conclusions.
+    8. Download the filtered CSV or PDF report if needed.
+
+    ## 8. Important Interpretation Rule
+
+    The dashboard supports analysis, but it does not replace official
+    validation by government agencies.
+
+    NCCAP classification is derived from CCET typology codes.
+
+    PDP / Executive Agenda Alignment and NDC Sector Alignment are analytical
+    proxies based on keyword matching. They should not be treated as official
+    government classifications.
+
+    ## 9. Recommended Use
+
+    This platform is best used for:
+
+    - Policy briefing
+    - Budget review
+    - Research analysis
+    - Agency comparison
+    - Climate expenditure monitoring
+    - Data quality review
+    - Exploratory policy analysis
+
+    ## 10. Disclaimer
+
+    The dashboard generates analytics based on the uploaded dataset. Users
+    should validate findings using official CCET submissions, QAR forms,
+    budget documents, agency reports, and official government publications.
+    """)
+
+with tab2:
+    st.subheader("Dataset Schema and Data Dictionary")
+
+    st.markdown(f"""
+    **Current dataset source:** {dataset_source}  
+    **Number of records:** {len(df):,}  
+    **Number of columns:** {len(df.columns):,}  
+    **Fiscal year coverage:** {int(df["Fiscal_Year"].min())} to {int(df["Fiscal_Year"].max())}
+    """)
+
+    schema_df = pd.DataFrame({
+        "Column": df.columns,
+        "Data Type": [str(df[col].dtype) for col in df.columns],
+        "Missing Values": [df[col].isna().sum() for col in df.columns],
+        "Description": [COLUMN_DICTIONARY.get(col, "Column from uploaded dataset.") for col in df.columns]
+    })
+
+    st.dataframe(schema_df, use_container_width=True, height=500)
+
+    st.markdown("### Dataset Preview")
+    st.dataframe(df.head(20), use_container_width=True)
+
+with tab3:
     st.subheader("Executive Brief")
 
     total_budget = f["TOTAL"].sum()
@@ -411,8 +545,8 @@ with tab1:
         The dashboard covers **{peso(total_budget)}** in climate-tagged PAPs across
         **{f["AGENCY"].nunique()} agencies** and **{f["PAP ID"].nunique()} PAP records**.
 
-        The portfolio is **adaptation-heavy**, with **{adaptation_share:.2f}%**
-        for adaptation and **{mitigation_share:.2f}%** for mitigation.
+        Adaptation accounts for **{adaptation_share:.2f}%**, while mitigation accounts for
+        **{mitigation_share:.2f}%**.
 
         The top spending agency is **{top_agency}** with **{peso(top_agency_amount)}**.
 
@@ -453,7 +587,7 @@ with tab1:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-with tab2:
+with tab4:
     st.subheader("Budget Trends")
 
     by_year = (
@@ -467,21 +601,11 @@ with tab2:
     c1, c2 = st.columns(2)
 
     with c1:
-        fig = px.area(
-            by_year,
-            x="Fiscal_Year",
-            y="TOTAL",
-            title="Climate Budget Trend"
-        )
+        fig = px.area(by_year, x="Fiscal_Year", y="TOTAL", title="Climate Budget Trend")
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        fig = px.bar(
-            by_year,
-            x="Fiscal_Year",
-            y="YoY Growth %",
-            title="Year-on-Year Growth Rate"
-        )
+        fig = px.bar(by_year, x="Fiscal_Year", y="YoY Growth %", title="Year-on-Year Growth Rate")
         st.plotly_chart(fig, use_container_width=True)
 
     pillar_year = (
@@ -507,7 +631,7 @@ with tab2:
 
     st.dataframe(by_year, use_container_width=True)
 
-with tab3:
+with tab5:
     st.subheader("Agency Ranking")
 
     top_n = st.slider("Number of agencies to show", 5, 50, 20)
@@ -530,24 +654,7 @@ with tab3:
 
     st.plotly_chart(fig, use_container_width=True)
 
-    agency_alignment = (
-        f.groupby(["AGENCY", "PDP / Executive Agenda Alignment"], as_index=False)["TOTAL"]
-        .sum()
-        .sort_values("TOTAL", ascending=False)
-        .head(40)
-    )
-
-    fig = px.bar(
-        agency_alignment,
-        x="TOTAL",
-        y="AGENCY",
-        color="PDP / Executive Agenda Alignment",
-        orientation="h",
-        title="Top Agencies by National Plan Alignment"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-with tab4:
+with tab6:
     st.subheader("NCCAP Alignment")
 
     c1, c2 = st.columns(2)
@@ -590,13 +697,11 @@ with tab4:
 
     st.dataframe(typology, use_container_width=True, height=500)
 
-with tab5:
+with tab7:
     st.subheader("PDP / Executive Agenda Alignment")
 
     st.info(
-        "This module uses keyword-based classification to estimate whether PAPs "
-        "are aligned with national climate, resilience, disaster risk reduction, "
-        "sustainable development, food security, water, energy, and ecosystem priorities."
+        "This module uses keyword-based classification. It is an analytical proxy, not official validation."
     )
 
     alignment = (
@@ -632,22 +737,11 @@ with tab5:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    st.dataframe(
-        f[[
-            "Fiscal_Year", "Type", "DEPARTMENT", "AGENCY",
-            "PAP ID", "PAP Description", "NCCAP Priority",
-            "PDP / Executive Agenda Alignment", "TOTAL"
-        ]].sort_values("TOTAL", ascending=False),
-        use_container_width=True,
-        height=500
-    )
-
-with tab6:
+with tab8:
     st.subheader("NDC Sector Alignment")
 
     st.info(
-        "This module estimates alignment with key climate sectors such as energy, "
-        "transport, agriculture, waste, industry, water/flood control, and ecosystems."
+        "This module estimates sector alignment using keyword matching. It is not an official NDC classification."
     )
 
     sector = (
@@ -677,22 +771,8 @@ with tab6:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    sector_year = (
-        f.groupby(["Fiscal_Year", "NDC Sector Alignment"], as_index=False)["TOTAL"]
-        .sum()
-    )
-
-    fig = px.area(
-        sector_year,
-        x="Fiscal_Year",
-        y="TOTAL",
-        color="NDC Sector Alignment",
-        title="NDC Sector Budget Trend"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-with tab7:
-    st.subheader("Policy Insights for DBM, CCC, and NEDA/DEPDev")
+with tab9:
+    st.subheader("Policy Insights")
 
     total_budget = f["TOTAL"].sum()
     adaptation_share = (f["ADAPTATION"].sum() / total_budget * 100) if total_budget else 0
@@ -702,53 +782,34 @@ with tab7:
     top_priority, top_priority_amount = safe_top_value(f, "NCCAP Priority")
     top_sector, top_sector_amount = safe_top_value(f, "NDC Sector Alignment")
 
-    st.markdown("### Key Policy Findings")
-
     st.write(
         f"""
-        **1. Climate budget concentration:** Total climate-tagged budget covered by the dashboard is **{peso(total_budget)}**.
+        **1. Total climate-tagged budget:** {peso(total_budget)}
 
-        **2. Adaptation-heavy portfolio:** Around **{adaptation_share:.2f}%** of the tagged budget is for adaptation, while **{mitigation_share:.2f}%** is for mitigation.
+        **2. Adaptation share:** {adaptation_share:.2f}%
 
-        **3. Top spending agency:** The largest climate-tagged allocation is from **{top_agency}**, with **{peso(top_agency_amount)}**.
+        **3. Mitigation share:** {mitigation_share:.2f}%
 
-        **4. Main NCCAP priority:** The biggest thematic allocation is under **{top_priority}**, with **{peso(top_priority_amount)}**.
+        **4. Top spending agency:** {top_agency} — {peso(top_agency_amount)}
 
-        **5. Main NDC sector:** The largest estimated NDC sector allocation is **{top_sector}**, with **{peso(top_sector_amount)}**.
+        **5. Largest NCCAP priority:** {top_priority} — {peso(top_priority_amount)}
+
+        **6. Largest estimated NDC sector:** {top_sector} — {peso(top_sector_amount)}
         """
     )
 
     st.markdown("### Suggested Policy Questions")
-
     st.write(
         """
-        - Are climate-tagged PAPs concentrated in a few agencies or broadly mainstreamed across government?
-        - Is the national climate budget overly adaptation-heavy compared with mitigation needs?
-        - Are PAPs aligned with national climate action and disaster resilience priorities?
-        - Which agencies have high climate allocations but weak policy alignment?
+        - Are climate-tagged PAPs concentrated in a few agencies?
+        - Is the portfolio too adaptation-heavy?
         - Which NCCAP priorities remain underfunded?
-        - Which NDC sectors require stronger budget support?
+        - Which agencies have large budgets but weak policy alignment?
+        - Which sectors may require stronger budget support?
         """
     )
 
-    participation = (
-        f.groupby("Fiscal_Year", as_index=False)["AGENCY"]
-        .nunique()
-        .rename(columns={"AGENCY": "Participating Agencies"})
-    )
-
-    fig = px.line(
-        participation,
-        x="Fiscal_Year",
-        y="Participating Agencies",
-        markers=True,
-        title="Agency Participation Trend"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-    st.dataframe(participation, use_container_width=True)
-
-with tab8:
+with tab10:
     st.subheader("PAP Explorer")
 
     search = st.text_input("Search PAP Description, Agency, Department, or Typology")
@@ -778,7 +839,7 @@ with tab8:
         height=600
     )
 
-with tab9:
+with tab11:
     st.subheader("Data Quality Checks")
 
     checks = {
@@ -830,78 +891,3 @@ with tab9:
         )
 
     st.dataframe(f.loc[mask], use_container_width=True, height=400)
-
-with tab10:
-    st.subheader("Dataset Schema and Data Dictionary")
-
-    st.markdown(f"""
-    **Current dataset source:** {dataset_source}  
-    **Number of records:** {len(df):,}  
-    **Number of columns:** {len(df.columns):,}  
-    **Fiscal year coverage:** {int(df["Fiscal_Year"].min())} to {int(df["Fiscal_Year"].max())}
-    """)
-
-    schema_df = pd.DataFrame({
-        "Column": df.columns,
-        "Data Type": [str(df[col].dtype) for col in df.columns],
-        "Missing Values": [df[col].isna().sum() for col in df.columns],
-        "Description": [COLUMN_DICTIONARY.get(col, "Column from uploaded dataset.") for col in df.columns]
-    })
-
-    st.dataframe(schema_df, use_container_width=True, height=500)
-
-    st.markdown("### Dataset Preview")
-    st.dataframe(df.head(20), use_container_width=True)
-
-with tab11:
-    st.subheader("User Manual and Guide")
-
-    st.markdown("""
-    ## Introduction
-
-    The National CCET Policy Analytics Platform is an interactive dashboard for analyzing
-    climate-tagged Programs, Activities, and Projects using CCET data.
-
-    ## How to Use the Dashboard
-
-    1. Use the sidebar filters to select a fiscal year, budget type, department, climate pillar,
-       PDP alignment, or NDC sector.
-    2. Review the KPI cards at the top.
-    3. Open each tab to explore trends, agencies, NCCAP alignment, policy insights, and PAP-level details.
-    4. Use the PAP Explorer to validate specific records.
-    5. Use the Data Quality tab to check possible data issues.
-    6. Download a PDF report from the sidebar.
-
-    ## Dashboard Pages
-
-    **Executive Brief** gives a quick policy summary.
-
-    **Budget Trends** shows climate budget movement across fiscal years.
-
-    **Agency Ranking** identifies top spending agencies.
-
-    **NCCAP Alignment** shows allocations by NCCAP priority and climate pillar.
-
-    **PDP / Executive Agenda** estimates national plan alignment using keywords.
-
-    **NDC Sector Alignment** estimates sectoral alignment.
-
-    **Policy Insights** provides policy questions and summary findings.
-
-    **PAP Explorer** allows record-level search and validation.
-
-    **Data Quality** checks missing values, duplicates, and budget inconsistencies.
-
-    **Dataset Schema** explains the dataset columns and structure.
-
-    ## Important Disclaimer
-
-    NCCAP classification is derived from CCET typology codes.
-
-    PDP / Executive Agenda Alignment and NDC Sector Alignment are analytical proxies
-    based on keyword matching. They should not be treated as official validation by
-    CCC, DBM, or NEDA/DEPDev.
-
-    Users should validate findings with official CCET submissions, QAR forms,
-    agency documents, and government publications before making policy conclusions.
-    """)
