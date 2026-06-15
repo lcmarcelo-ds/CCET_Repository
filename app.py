@@ -1,5 +1,4 @@
 import os
-import zipfile
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -10,10 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-DATA_PATHS = [
-    "data/ccet_data.csv",
-    "data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.xlsx",
-]
+DATA_PATH = "data/ccet_data.csv"
 
 NCCAP_PRIORITY = {
     "1": "Food Security",
@@ -27,55 +23,17 @@ NCCAP_PRIORITY = {
 }
 
 
-def find_data_file():
-    for path in DATA_PATHS:
-        if os.path.exists(path):
-            return path
-    return None
-
-
-@st.cache_data(show_spinner="Loading CCET dataset...")
+@st.cache_data(show_spinner="Loading CCET CSV dataset...")
 def load_data() -> pd.DataFrame:
-    path = find_data_file()
-
-    if path is None:
-        st.error(
-            "Dataset not found. Upload either `data/ccet_data.csv` "
-            "or `data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.xlsx`."
-        )
+    if not os.path.exists(DATA_PATH):
+        st.error("CSV dataset not found. Please upload it as `data/ccet_data.csv`.")
         st.stop()
 
-    try:
-        if path.endswith(".csv"):
-            df = pd.read_csv(path)
-
-        elif path.endswith(".xlsx"):
-            if not zipfile.is_zipfile(path):
-                st.error(
-                    "Your Excel file is not a valid .xlsx file. "
-                    "This usually means GitHub uploaded a Git LFS pointer instead of the actual Excel file. "
-                    "Please convert the Excel file to CSV and upload it as `data/ccet_data.csv`."
-                )
-                st.stop()
-
-            xls = pd.ExcelFile(path, engine="openpyxl")
-            sheet = "Tagged" if "Tagged" in xls.sheet_names else xls.sheet_names[0]
-            df = pd.read_excel(path, sheet_name=sheet, engine="openpyxl")
-
-        else:
-            st.error("Unsupported file type. Please use CSV or XLSX.")
-            st.stop()
-
-    except Exception as e:
-        st.error("Failed to load dataset. Please check the file format.")
-        st.exception(e)
-        st.stop()
-
+    df = pd.read_csv(DATA_PATH, encoding="utf-8-sig")
     df.columns = [str(c).strip() for c in df.columns]
     df = df.rename(columns={"ADAPTION": "ADAPTATION"})
 
-    required_numeric = ["Fiscal_Year", "ADAPTATION", "MITIGATION", "TOTAL"]
-    for col in required_numeric:
+    for col in ["Fiscal_Year", "ADAPTATION", "MITIGATION", "TOTAL"]:
         if col not in df.columns:
             df[col] = 0
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
@@ -101,7 +59,8 @@ def load_data() -> pd.DataFrame:
     typo = df["TYPOLOGY ID"].str.upper()
 
     df["Climate Pillar"] = np.where(
-        typo.str.startswith("M"), "Mitigation",
+        typo.str.startswith("M"),
+        "Mitigation",
         np.where(typo.str.startswith("A"), "Adaptation", "Unclassified")
     )
 
@@ -147,12 +106,16 @@ f = df.copy()
 
 if years:
     f = f[f["Fiscal_Year"].isin(years)]
+
 if types:
     f = f[f["Type"].isin(types)]
+
 if tagging:
     f = f[f["GRIT TAGGING"].isin(tagging)]
+
 if departments:
     f = f[f["DEPARTMENT"].isin(departments)]
+
 if pillars:
     f = f[f["Climate Pillar"].isin(pillars)]
 
@@ -359,7 +322,11 @@ with tab6:
         "Missing typology ID": f["TYPOLOGY ID"].eq("").sum(),
         "Zero or blank total": (f["TOTAL"].fillna(0) == 0).sum(),
         "Adaptation + Mitigation ≠ Total": (
-            (f["ADAPTATION"].fillna(0) + f["MITIGATION"].fillna(0) - f["TOTAL"].fillna(0)).abs() > 1
+            (
+                f["ADAPTATION"].fillna(0)
+                + f["MITIGATION"].fillna(0)
+                - f["TOTAL"].fillna(0)
+            ).abs() > 1
         ).sum(),
         "Duplicate PAP ID records": f.duplicated(
             subset=["Fiscal_Year", "Type", "AGENCY", "PAP ID", "TYPOLOGY ID"],
@@ -386,7 +353,11 @@ with tab6:
         mask = f["TOTAL"].fillna(0) == 0
     elif issue_filter == "Adaptation + Mitigation ≠ Total":
         mask = (
-            (f["ADAPTATION"].fillna(0) + f["MITIGATION"].fillna(0) - f["TOTAL"].fillna(0)).abs() > 1
+            (
+                f["ADAPTATION"].fillna(0)
+                + f["MITIGATION"].fillna(0)
+                - f["TOTAL"].fillna(0)
+            ).abs() > 1
         )
     elif issue_filter == "Duplicate PAP ID records":
         mask = f.duplicated(
