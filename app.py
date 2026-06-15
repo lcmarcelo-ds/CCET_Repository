@@ -487,19 +487,8 @@ with tab1:
     proxies based on keyword matching. They should not be treated as official
     government classifications.
 
-    ## 9. Recommended Use
 
-    This platform is best used for:
-
-    - Policy briefing
-    - Budget review
-    - Research analysis
-    - Agency comparison
-    - Climate expenditure monitoring
-    - Data quality review
-    - Exploratory policy analysis
-
-    ## 10. Disclaimer
+    ## 9. Disclaimer
 
     The dashboard generates analytics based on the uploaded dataset. Users
     should validate findings using official CCET submissions, QAR forms,
