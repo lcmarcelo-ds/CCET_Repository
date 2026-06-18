@@ -695,9 +695,9 @@ def build_ngi_top10_chart(exclude_dpwh=False):
         },
     )
     fig.update_traces(textposition="outside", cliponaxis=False, marker_line_color="white", marker_line_width=1.2)
-    title = "<b>NGIs with Highest Climate-Tagged Allocations</b><br><span style='font-size:15px;'>Cumulative GAA FY2022-FY2025</span>"
+    title = "<b>NGIs with Highest Climate-Tagged Allocations</b>"
     if exclude_dpwh:
-        title = "<b>NGIs with Highest Climate-Tagged Allocations, Excluding DPWH</b><br><span style='font-size:15px;'>Zoomed view of remaining top agencies</span>"
+        title = "<b>NGIs with Highest Climate-Tagged Allocations, Excluding DPWH</b>"
     apply_report_layout(
         fig,
         height=760 if not exclude_dpwh else 700,
@@ -726,7 +726,7 @@ def build_ngi_institution_type_donut():
     apply_report_layout(
         fig,
         height=610,
-        title="<b>Share of Top 10 NGI Allocations by Institution Type</b><br><span style='font-size:15px;'>Cumulative GAA FY2022-FY2025</span>",
+        title="<b>Share of Top 10 NGI Allocations by Institution Type</b>",
         source_note="The tabulation is based on cumulative GAA FY2022-FY2025.",
         bottom_margin=105,
     )
@@ -854,7 +854,6 @@ def build_nccap_stacked_chart():
         fig,
         height=830,
         title="<b>NCCAP Thematic Priority Allocation Mix</b><br><span style='font-size:15px;'>Stacked view of climate-tagged GAA allocations by priority, FY2022-FY2025</span>",
-        source_note="The tabulation is based on NCCAP thematic priority allocations. Visible labels show amount and share for larger segments; hover to see full values.",
         legend_y=-0.24,
         bottom_margin=295,
     )
@@ -879,7 +878,7 @@ def build_challenge_priority_chart():
     apply_report_layout(
         fig,
         height=580,
-        title="<b>FGD/KII Challenge and Recommendation Priorities</b><br><span style='font-size:15px;'>Dashboard-ready implementation issues by priority level</span>",
+        title="<b>FGD/KII Challenge and Recommendation Priorities</b>",
         source_note="Source: Synthesized FGD/KII implementation themes from the updated CCET assessment materials.",
         bottom_margin=110,
     )
@@ -906,7 +905,7 @@ def build_budget_cycle_map_chart():
     apply_report_layout(
         fig,
         height=560,
-        title="<b> Coverage Across the Public Budget Cycle</b><b></b><br><span style='font-size:15px;'>Analytical modules linked to CCET implementation stages</span>",
+        title="<b> Coverage Across the Public Budget Cycle</b>",
         source_note="Source: The visualization is based on the assessment's public budget cycle analytical framework.",
         bottom_margin=110,
     )
