@@ -468,8 +468,7 @@ def render_chart(fig, title, file_stem, height=720, width=1450):
                 mime="image/png",
                 key=f"{file_stem}_png",
             )
-        except Exception:
-            st.caption("PNG export requires `kaleido`. Add `kaleido` to requirements.txt.")
+
 
 # ============================================================
 # REPORT-GRADE FIGURE BUILDERS
@@ -1285,7 +1284,7 @@ with tab_exec:
 
 with tab_key:
     st.subheader("Key Findings Dashboard")
-    st.info("This tab mirrors the report's key findings visuals for FY2022-FY2025. These figures are report-grade reference tables, separate from the sidebar-filtered PAP explorer dataset.")
+    ("This tab mirrors the report's key findings visuals for FY2022-FY2025. These figures are report-grade reference tables, separate from the sidebar-filtered PAP explorer dataset.")
     render_chart(build_climate_budget_share_chart(), "Figure 5.6", "Figure_5_6_Climate_Tagged_Budget_Share", height=760, width=1450)
     st.divider()
     c1, c2 = st.columns(2)
