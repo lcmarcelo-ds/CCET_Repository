@@ -526,7 +526,7 @@ def build_climate_budget_share_chart():
         fig,
         height=760,
         title="<b>Climate-Tagged GAA, Total National Budget, and Share of National Budget</b><br><span style='font-size:15px;'>FY2022-FY2025</span>",
-        source_note="Source: Author's tabulation based on key findings table. Amounts shown in trillion pesos; share shown as percent of national budget.",
+        source_note="The tabulation is based on key findings table. Amounts shown in trillion pesos; share shown as percent of national budget.",
         bottom_margin=125,
     )
     fig.update_layout(barmode="group")
@@ -560,7 +560,7 @@ def build_nep_gaa_actual_chart():
         fig,
         height=720,
         title="<b>NEP, GAA, and Actual CCET Budgets</b><br><span style='font-size:15px;'>FY2022-FY2025</span>",
-        source_note="Source: Author's tabulation based on key findings table. Values are expressed in billion pesos.",
+        source_note="The tabulation is based on key findings table. Values are expressed in billion pesos.",
         bottom_margin=125,
     )
     fig.update_layout(barmode="group")
@@ -593,7 +593,7 @@ def build_budget_cycle_variance_chart():
         fig,
         height=720,
         title="<b>Budget-Cycle Variance in CCET</b><br><span style='font-size:15px;'>NEP to GAA and GAA to Actual changes</span>",
-        source_note="Source: Author's computation based on NEP, GAA, and Actual CCET figures. Positive values indicate increases; negative values indicate reductions.",
+        source_note="The computation is based on NEP, GAA, and Actual CCET figures. Positive values indicate increases; negative values indicate reductions.",
         bottom_margin=125,
     )
     fig.update_layout(barmode="group")
@@ -623,7 +623,7 @@ def build_actual_vs_gaa_percent_chart():
         fig,
         height=700,
         title="<b>Actual Compared with GAA</b><br><span style='font-size:15px;'>Percentage difference between Actual and approved GAA CCET budgets</span>",
-        source_note="Source: Author's computation based on Actual and GAA CCET figures. FY2025 is excluded because Actual data are not available.",
+        source_note="The computation is based on Actual and GAA CCET figures. FY2025 is excluded because Actual data are not available.",
         bottom_margin=125,
     )
     fig.update_yaxes(title_text="Percent Difference", range=[0, max_pct * 1.35], ticksuffix="%", gridcolor=LIGHT_GRAY)
@@ -662,7 +662,7 @@ def build_adaptation_mitigation_share_chart():
         fig,
         height=720,
         title="<b>Adaptation and Mitigation Share</b><br><span style='font-size:15px;'>Distribution of climate-tagged budget by climate pillar, FY2022-FY2025</span>",
-        source_note="Source: Author's tabulation based on adaptation and mitigation shares. Values are percentage shares of climate-tagged budget.",
+        source_note="The tabulation is based on adaptation and mitigation shares. Values are percentage shares of climate-tagged budget.",
         bottom_margin=125,
     )
     fig.update_layout(barmode="stack")
@@ -702,7 +702,7 @@ def build_ngi_top10_chart(exclude_dpwh=False):
         fig,
         height=760 if not exclude_dpwh else 700,
         title=title,
-        source_note="Source: Author's tabulation based on cumulative GAA FY2022-FY2025. Values are expressed in billion pesos.",
+        source_note="The tabulation is based on cumulative GAA FY2022-FY2025. Values are expressed in billion pesos.",
         bottom_margin=125,
     )
     fig.update_layout(margin=dict(l=340, r=120, t=140, b=125))
@@ -727,7 +727,7 @@ def build_ngi_institution_type_donut():
         fig,
         height=610,
         title="<b>Share of Top 10 NGI Allocations by Institution Type</b><br><span style='font-size:15px;'>Cumulative GAA FY2022-FY2025</span>",
-        source_note="Source: Author's tabulation based on cumulative GAA FY2022-FY2025.",
+        source_note="The tabulation is based on cumulative GAA FY2022-FY2025.",
         bottom_margin=105,
     )
     fig.add_annotation(text="Top 10<br>NGIs", x=0.5, y=0.5, showarrow=False, font=dict(size=18, color=PRIMARY_BLUE))
@@ -805,7 +805,7 @@ def build_nccap_matrix_chart():
     fig.update_xaxes(title_text="Fiscal Year", side="top", tickfont=dict(size=13))
     fig.update_yaxes(title_text="NCCAP Thematic Priority", autorange="reversed", tickfont=dict(size=12))
     fig.add_annotation(
-        text="Source: Author's tabulation based on NCCAP thematic priority allocations, FY2022-FY2025. Amounts are in billion pesos; percentages indicate each priority's share of fiscal-year total.",
+        text="The tabulation is based on NCCAP thematic priority allocations, FY2022-FY2025. Amounts are in billion pesos; percentages indicate each priority's share of fiscal-year total.",
         xref="paper",
         yref="paper",
         x=0,
@@ -854,7 +854,7 @@ def build_nccap_stacked_chart():
         fig,
         height=830,
         title="<b>NCCAP Thematic Priority Allocation Mix</b><br><span style='font-size:15px;'>Stacked view of climate-tagged GAA allocations by priority, FY2022-FY2025</span>",
-        source_note="Source: Author's tabulation based on NCCAP thematic priority allocations. Visible labels show amount and share for larger segments; hover to see full values.",
+        source_note="The tabulation is based on NCCAP thematic priority allocations. Visible labels show amount and share for larger segments; hover to see full values.",
         legend_y=-0.24,
         bottom_margin=295,
     )
@@ -906,8 +906,8 @@ def build_budget_cycle_map_chart():
     apply_report_layout(
         fig,
         height=560,
-        title="<b>Dashboard Coverage Across the Public Budget Cycle</b><br><span style='font-size:15px;'>Analytical modules linked to CCET implementation stages</span>",
-        source_note="Source: Dashboard design based on the assessment's public budget cycle analytical framework.",
+        title="<b> Coverage Across the Public Budget Cycle</b><b></b><br><span style='font-size:15px;'>Analytical modules linked to CCET implementation stages</span>",
+        source_note="Source: The visualization is based on the assessment's public budget cycle analytical framework.",
         bottom_margin=110,
     )
     fig.update_yaxes(title_text="Dashboard Emphasis", range=[0, 5], showticklabels=False, gridcolor=LIGHT_GRAY)
