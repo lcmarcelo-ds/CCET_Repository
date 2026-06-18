@@ -468,7 +468,8 @@ def render_chart(fig, title, file_stem, height=720, width=1450):
                 mime="image/png",
                 key=f"{file_stem}_png",
             )
-
+        except Exception:
+            st.caption("PNG export requires `kaleido`. Add `kaleido` to requirements.txt.")
 
 # ============================================================
 # REPORT-GRADE FIGURE BUILDERS
