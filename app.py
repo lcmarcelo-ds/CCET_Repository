@@ -1112,27 +1112,124 @@ with tab_user:
     st.markdown("""
     ## Purpose of the Dashboard
 
-    This dashboard is an interactive policy analytics platform for examining National Climate Change Expenditure Tagging (CCET) data and the CCET impact assessment's key findings.
+    This dashboard is an interactive policy analytics platform for examining
+    Climate Change Expenditure Tagging data. It helps to understand how
+    climate-tagged Programs, Activities, and Projects are distributed across
+    fiscal years, departments, agencies, climate pillars, NCCAP priorities,
+    and estimated policy alignment areas.
 
-    The dashboard now has two layers:
+    The platform is intended to support evidence-based discussion, planning,
+    budgeting, monitoring, and policy review.
+ ## 2. Intended Users
 
-    **1. Dataset-driven analytics** based on the loaded PAP-level CCET dataset.
+    This dashboard may be used by not limited to the following:
 
-    **2. Report-grade key findings modules** based on the FY2022-FY2025 tables prepared for the CCET impact assessment report.
+    - Climate Change Commission
+    - Department of Budget and Management
+    - NEDA / DEPDev
+    - National Government Agencies
+    - Policy analysts
+    - Researchers
+    - Academic institutions
+    - Development partners
 
-    ## Important Interpretation Rule
 
-    The dashboard supports analysis, but it does not replace official validation by government agencies.
-    NCCAP classifications are derived from CCET typology codes. PDP / Executive Agenda Alignment and NDC Sector Alignment are keyword-based analytical proxies.
+    ## 3. Dataset Options
 
-    ## New Sections Added
+    The dashboard automatically loads the default dataset from the GitHub
+    repository. Users may also upload a new CSV file using the sidebar.
 
-    - **Key Findings**: climate budget share, NEP-GAA-Actual, budget-cycle variance, and adaptation-mitigation distribution.
-    - **Budget Cycle Analysis**: maps CCET analytics to preparation, legislation, execution, and accountability.
-    - **NGI Highest Allocations**: shows the top climate-tagged NGIs and institution-type concentration.
-    - **NCCAP Priority Matrix**: shows amount and percentage share by NCCAP priority and fiscal year.
-    - **FGD/KII Insights**: translates implementation challenges into dashboard-relevant monitoring themes.
-    - **Recommendations Tracker**: maps challenges to recommended dashboard and policy responses.
+    If a CSV file is uploaded, all charts, tables, and indicators will update
+    based on the uploaded dataset.
+
+    ## 4. Sidebar Filters
+
+    The filters control the entire dashboard.
+
+    **Fiscal Year** filters records by year.
+
+    **Budget Type** filters by available budget classification, such as GAA,
+    NEP, or other dataset values.
+
+    **Department** filters the dashboard to a selected government department.
+
+    **Climate Pillar** filters records into Adaptation, Mitigation, or
+    Unclassified.
+
+    **PDP / Executive Agenda Alignment** filters records based on keyword-based
+    estimated alignment.
+
+    **NDC Sector** filters records based on estimated sector classification.
+
+    ## 5. KPI Cards
+
+    The five cards at the top summarize:
+
+    - Total Climate Budget
+    - Adaptation Budget
+    - Mitigation Budget
+    - Number of Agencies
+    - Number of PAP Records
+
+    These indicators change depending on selected filters.
+
+    ## 6. Dashboard Sections
+
+    **Dataset Schema** explains the structure of the dataset and the meaning
+    of each column.
+
+    **Executive Brief** provides a high-level summary for policy audiences.
+
+    **Budget Trends** shows changes in climate-tagged budgets across fiscal
+    years.
+
+    **Agency Ranking** identifies the agencies with the largest climate-tagged
+    budgets.
+
+    **NCCAP Alignment** analyzes allocations according to NCCAP priorities and
+    climate pillars.
+
+    **PDP / Executive Agenda** provides a keyword-based estimate of alignment
+    with national climate and development priorities.
+
+    **NDC Sector Alignment** estimates sectoral climate alignment.
+
+    **Policy Insights** summarizes major policy observations and suggested
+    questions.
+
+    **PAP Explorer** allows users to search and inspect individual records.
+
+    **Data Quality** checks for missing values, duplicate records, and budget
+    inconsistencies.
+
+    ## 7. How to Use the Dashboard
+
+    1. Review this User Manual.
+    2. Open Dataset Schema to understand the data structure.
+    3. Use the sidebar filters.
+    4. Review the KPI cards.
+    5. Explore the charts and tables.
+    6. Validate findings using PAP Explorer.
+    7. Check Data Quality before making policy conclusions.
+    8. Download the filtered CSV or PDF report if needed.
+
+    ## 8. Important Interpretation Rule
+
+    The dashboard supports analysis, but it does not replace official
+    validation by government agencies.
+
+    NCCAP classification is derived from CCET typology codes.
+
+    PDP / Executive Agenda Alignment and NDC Sector Alignment are analytical
+    proxies based on keyword matching. They should not be treated as official
+    government classifications.
+
+
+    ## 9. Disclaimer
+
+    The dashboard generates analytics based on the uploaded dataset. Users
+    should validate findings using official CCET submissions, QAR forms,
+    budget documents, agency reports, and official government publications.
     """)
 
 with tab_schema:
