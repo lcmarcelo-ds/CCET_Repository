@@ -1,4 +1,5 @@
 
+
 import os
 import re
 from io import BytesIO
@@ -21,27 +22,20 @@ except ModuleNotFoundError:
     REPORTLAB_AVAILABLE = False
 
 
-# ============================================================
-# PAGE CONFIG
-# ============================================================
 
 st.set_page_config(
-    page_title="National CCET Smart Policy Analytics Platform",
+    page_title="National CCET Smart Analytics Dashboard",
+    page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 
-# ============================================================
-# DESIGN CONSTANTS
-# ============================================================
-
 DEFAULT_DATA_CANDIDATES = [
     "data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.csv"
 ]
 
-# The cleaned National CCET PAP-level dataset stores budget values in thousand pesos.
-# Example: raw value 1,000,000 = ₱1,000,000,000 = ₱1.00B.
+
 DATASET_VALUE_MULTIPLIER = 1_000
 
 PRIMARY_BLUE = "#17365D"
@@ -53,13 +47,11 @@ ORANGE = "#ED7D31"
 YELLOW = "#FFC000"
 TEAL = "#00A6A6"
 PURPLE = "#8064A2"
-RED = "#C00000"
 GRAY = "#A5A5A5"
-DARK_GRAY = "#595959"
+DARK_GRAY = "#666666"
 LIGHT_GRAY = "#E6ECF5"
 DARK_TEXT = "#1F1F1F"
-
-CHART_COLOR_SEQUENCE = [DEEP_BLUE, MID_BLUE, GREEN, ORANGE, TEAL, PURPLE, YELLOW, GRAY]
+CARD_BG = "#F8FBFF"
 
 NCCAP_PRIORITY = {
     "1": "Food Security",
@@ -72,373 +64,243 @@ NCCAP_PRIORITY = {
     "8": "Cross-Cutting",
 }
 
-NCCAP_ORDER = [
-    "Food Security",
-    "Water Sufficiency",
-    "Ecosystem & Environmental Stability",
-    "Human Security",
-    "Climate-Smart Industries & Services",
-    "Sustainable Energy",
-    "Knowledge & Capacity Development",
-    "Cross-Cutting",
-    "Unclassified",
-]
+NCCAP_ORDER = list(NCCAP_PRIORITY.values()) + ["Unclassified"]
 
 PDP_KEYWORDS = [
-    "climate", "resilience", "disaster", "risk reduction", "adaptation",
-    "mitigation", "flood", "drainage", "water", "irrigation",
-    "food security", "agriculture", "renewable", "energy efficiency",
-    "sustainable", "environment", "ecosystem", "biodiversity",
-    "green", "carbon", "emission", "hazard", "watershed", "low-carbon",
-    "climate-smart", "sustainable energy", "human security",
+    "climate", "resilience", "disaster", "risk reduction", "adaptation", "mitigation",
+    "flood", "drainage", "water", "irrigation", "food security", "agriculture",
+    "renewable", "energy efficiency", "sustainable", "environment", "ecosystem",
+    "biodiversity", "green", "carbon", "emission", "hazard", "watershed",
+    "low carbon", "loss and damage", "vulnerability", "disaster risk", "sustainable energy",
 ]
 
-NATIONAL_BUDGET_BILLION = pd.DataFrame({
+INSTITUTION_COLORS = {
+    "NGA": DEEP_BLUE,
+    "GOCC": GREEN,
+    "SUC": ORANGE,
+    "Unclassified": GRAY,
+}
+
+PILLAR_COLORS = {
+    "Adaptation": DEEP_BLUE,
+    "Mitigation": GREEN,
+    "Unclassified": GRAY,
+}
+
+PRIORITY_COLORS = {
+    "Food Security": DEEP_BLUE,
+    "Water Sufficiency": MID_BLUE,
+    "Ecosystem & Environmental Stability": GREEN,
+    "Human Security": YELLOW,
+    "Climate-Smart Industries & Services": ORANGE,
+    "Sustainable Energy": TEAL,
+    "Knowledge & Capacity Development": PURPLE,
+    "Cross-Cutting": GRAY,
+    "Unclassified": "#C9C9C9",
+}
+
+NATIONAL_BUDGET_REFERENCE_B = pd.DataFrame({
     "Fiscal_Year": [2022, 2023, 2024, 2025],
     "Total National Budget (Billion Pesos)": [5023.00, 5268.00, 5768.00, 6326.00],
 })
 
 COLUMN_DICTIONARY = {
     "Fiscal_Year": "Fiscal year covered by the climate-tagged PAP record.",
-    "Type": "Budget stage/classification, such as NEP, GAA, or Actual.",
-    "DEPARTMENT": "Parent department or sector of the implementing institution.",
-    "GRIT TAGGING": "Institution-type classification used in the dataset: NGA, SUC, or GOCC.",
-    "AGENCY": "Implementing or reporting agency/institution.",
-    "Agency Display": "Derived department-agency label for clearer ranking and search.",
+    "Type": "Budget classification such as NEP, GAA, or Actual.",
+    "DEPARTMENT": "Parent department or sector of the implementing agency.",
+    "GRIT TAGGING": "Institution type used in the assessment: NGA, SUC, GOCC, or Unclassified.",
+    "AGENCY": "Implementing or reporting national government institution.",
+    "Agency Unit": "Derived combined department-agency-institution identifier used for counting unique NGIs.",
+    "Agency Label": "Derived readable label combining department and agency to avoid generic agency names.",
     "PAP ID": "Program, Activity, or Project identifier.",
     "PAP Description": "Name or description of the climate-tagged PAP.",
     "TYPOLOGY ID": "CCET typology code used to classify the PAP.",
     "TYPOLOGY Description": "Description of the assigned CCET typology.",
-    "ADAPTATION": "Amount tagged for climate change adaptation, raw dataset value in thousand pesos.",
-    "MITIGATION": "Amount tagged for climate change mitigation, raw dataset value in thousand pesos.",
-    "TOTAL": "Total climate-tagged amount, raw dataset value in thousand pesos.",
-    "Climate Pillar": "Derived climate pillar based on typology code and/or adaptation-mitigation amounts.",
-    "NCCAP Code": "Derived NCCAP thematic priority code from the typology ID.",
-    "NCCAP Thematic Priority": "Derived NCCAP thematic priority from the typology code.",
-    "PDP / Executive Agenda Alignment": "Keyword-based analytical proxy for possible alignment with climate and development priorities.",
-    "Text Corpus": "Combined text field used for keyword search and proxy alignment classification.",
+    "ADAPTATION": "Raw amount tagged for climate change adaptation. Dataset values are treated as thousand pesos.",
+    "MITIGATION": "Raw amount tagged for climate change mitigation. Dataset values are treated as thousand pesos.",
+    "TOTAL": "Raw total climate-tagged amount. Dataset values are treated as thousand pesos.",
+    "Climate Pillar": "Derived from typology ID or amount fields: Adaptation, Mitigation, or Unclassified.",
+    "NCCAP Code": "Derived NCCAP priority code from the CCET typology ID.",
+    "NCCAP Priority": "Derived NCCAP thematic priority.",
+    "PDP / Executive Agenda Alignment": "Keyword-based analytical proxy for possible alignment with national climate/development priorities.",
 }
-
-
-# ============================================================
-# FGD/KII AND RECOMMENDATION REFERENCE DATA
-# ============================================================
 
 FGD_KII_INSIGHTS = pd.DataFrame([
     {
         "Theme": "Knowledge concentration and continuity",
-        "Budget Cycle Stage": "Preparation",
         "Institution Type": "NGA / GOCC / SUC",
-        "Challenge": "CCET knowledge and responsibilities are often concentrated among a few focal persons, creating continuity risks when personnel change.",
-        "Dashboard Response": "Add institution-type participation, focal-role notes, and familiarity indicators.",
-        "Data Science Response": "Qualitative coding, frequency counts, and institution-type segmentation.",
-        "Recommendation": "Establish minimum institutional requirements, internal CCET roles, and regular onboarding/refresher training.",
+        "Challenge": "CCET knowledge and responsibilities are concentrated among select personnel; turnover weakens continuity.",
+        "Smart Dashboard Response": "Add institution-type filters, training/familiarity indicators, and agency-level implementation readiness notes.",
+        "Recommendation": "Establish minimum institutional requirements, designate CCET focal teams, and institutionalize onboarding/refresher training.",
         "Priority": "High",
-        "Smart Indicator": "Familiarity / role / year-involvement tracker",
+        "Budget Cycle Stage": "Preparation",
     },
     {
         "Theme": "Climate relevance and attribution ambiguity",
+        "Institution Type": "NGA / GOCC / SUC",
+        "Challenge": "Agencies may differ in tagging whole PAPs versus climate-relevant components; attribution rules remain unevenly understood.",
+        "Smart Dashboard Response": "Flag large blanket-tagged PAPs, add attribution-method fields, and provide PAP-level review tables.",
+        "Recommendation": "Develop detailed, context-specific tagging and proportional attribution guidance similar to a structured scoring approach.",
+        "Priority": "High",
         "Budget Cycle Stage": "Preparation",
-        "Institution Type": "NGA / GOCC / SUC",
-        "Challenge": "Agencies face difficulty deciding whether to tag whole PAPs or only climate-relevant components.",
-        "Dashboard Response": "Add PAP-level attribution notes and flag large blanket-tagged PAPs for review.",
-        "Data Science Response": "Rule-based flags, outlier detection, and PAP-level drill-down.",
-        "Recommendation": "Develop more detailed, sector-specific tagging and attribution guidance, including proportional tagging rules.",
-        "Priority": "High",
-        "Smart Indicator": "Attribution method / large PAP flag",
-    },
-    {
-        "Theme": "Weak climate-results tracking",
-        "Budget Cycle Stage": "Execution / Accountability",
-        "Institution Type": "NGA / GOCC / SUC",
-        "Challenge": "Existing systems provide limited support for linking tagged budgets to climate indicators, accomplishments, or outcomes.",
-        "Dashboard Response": "Add M&E readiness fields and future accomplishment/audit linkage placeholders.",
-        "Data Science Response": "Data linkage design, completeness scoring, and dashboard maturity indicators.",
-        "Recommendation": "Integrate climate indicators into planning, M&E, and reporting frameworks.",
-        "Priority": "High",
-        "Smart Indicator": "M&E linkage completeness",
     },
     {
         "Theme": "Budget-cycle traceability",
-        "Budget Cycle Stage": "Legislation / Execution",
         "Institution Type": "NGA / GOCC / SUC",
-        "Challenge": "PAP-level movement from NEP to GAA to Actual is difficult to reconcile consistently.",
-        "Dashboard Response": "Add NEP-GAA-Actual variance and PAP-level reconciliation tables.",
-        "Data Science Response": "Variance analysis, utilization-gap analysis, and unique-key reconciliation.",
-        "Recommendation": "Institutionalize feedback and reconciliation mechanisms across budget stages.",
+        "Challenge": "Users need to trace PAPs from NEP to GAA to Actual, but records are difficult to reconcile across stages.",
+        "Smart Dashboard Response": "Add NEP-GAA-Actual pivot tables, variance charts, and downloadable reconciliation outputs.",
+        "Recommendation": "Institutionalize feedback and reconciliation mechanisms for PAP-level budget traceability.",
         "Priority": "High",
-        "Smart Indicator": "NEP-GAA-Actual variance flag",
+        "Budget Cycle Stage": "Legislation / Execution",
     },
     {
-        "Theme": "Limited budget deliberation use",
-        "Budget Cycle Stage": "Legislation",
+        "Theme": "Climate results tracking",
+        "Institution Type": "NGA / GOCC / SUC",
+        "Challenge": "The current data show tagged budgets but provide limited evidence on climate outputs, outcomes, or results.",
+        "Smart Dashboard Response": "Add placeholders for climate indicators, accomplishment reports, M&E readiness, and audit linkages.",
+        "Recommendation": "Integrate climate indicators into agency planning, M&E, and accomplishment reporting frameworks.",
+        "Priority": "High",
+        "Budget Cycle Stage": "Execution / Accountability",
+    },
+    {
+        "Theme": "Limited use in budget deliberations",
         "Institution Type": "NGA / GOCC",
-        "Challenge": "CCET reports are perceived to have limited influence in DBM or congressional budget deliberations.",
-        "Dashboard Response": "Add budget-stage use notes and show changes between NEP and GAA.",
-        "Data Science Response": "Comparative analytics and policy narrative generation.",
-        "Recommendation": "Strengthen use of CCET analytics in budget review, policy briefs, and deliberation support.",
+        "Challenge": "CCET outputs are perceived to have limited influence in budget review and deliberation processes.",
+        "Smart Dashboard Response": "Generate budget-stage summaries, variance insights, and concise policy briefs for deliberation support.",
+        "Recommendation": "Strengthen strategic utilization of CCET data during budget preparation, technical budget hearings, and policy review.",
         "Priority": "Medium",
-        "Smart Indicator": "NEP-to-GAA movement",
+        "Budget Cycle Stage": "Legislation",
     },
     {
-        "Theme": "Audit awareness and accountability",
+        "Theme": "Audit guideline awareness gaps",
+        "Institution Type": "NGA / GOCC / SUC",
+        "Challenge": "There are gaps in awareness and application of audit guidelines for climate-tagged expenditures.",
+        "Smart Dashboard Response": "Add audit-readiness indicators and data quality flags that can guide agency validation.",
+        "Recommendation": "Review, clarify, and disseminate climate expenditure audit guidance with CCC, DBM, COA, and agencies.",
+        "Priority": "Medium",
         "Budget Cycle Stage": "Accountability",
-        "Institution Type": "NGA / GOCC / SUC",
-        "Challenge": "There are gaps in awareness and application of audit guidelines for climate-related expenditures.",
-        "Dashboard Response": "Add audit-readiness notes and data-quality flags for missing typology or inconsistent amounts.",
-        "Data Science Response": "Data quality validation and rule-based anomaly detection.",
-        "Recommendation": "Review and clarify climate expenditure audit guidelines and agency documentation requirements.",
-        "Priority": "Medium",
-        "Smart Indicator": "Audit-readiness / data-quality score",
     },
     {
-        "Theme": "Administrative burden and platform fragmentation",
-        "Budget Cycle Stage": "Preparation / Reporting",
+        "Theme": "Administrative burden and fragmented systems",
         "Institution Type": "NGA / GOCC / SUC",
-        "Challenge": "Administrative processes and requirements can be fragmented across forms, platforms, and reporting tools.",
-        "Dashboard Response": "Add integrated platform concept and exportable reconciled tables.",
-        "Data Science Response": "Data productization, standardized schema, and automated exports.",
-        "Recommendation": "Streamline administrative processes and requirements through an integrated platform.",
+        "Challenge": "Separate requirements and systems can make tagging, documentation, and validation administratively heavy.",
+        "Smart Dashboard Response": "Move toward an integrated dashboard/platform concept with common templates, downloads, and validation checks.",
+        "Recommendation": "Streamline administrative requirements through an integrated CCET platform and standardized data templates.",
         "Priority": "Medium",
-        "Smart Indicator": "Integrated platform readiness",
+        "Budget Cycle Stage": "Preparation / Reporting",
     },
 ])
 
-RECOMMENDATION_SCORECARD = pd.DataFrame([
-    {
-        "Reform Area": "Minimum institutional requirements",
-        "Purpose": "Ensure each institution has clear CCET roles, focal persons, and continuity arrangements.",
-        "Dashboard Feature": "Participation and institution-type tracker",
-        "Data Science Method": "Coverage analytics and segmentation",
-        "Priority": "High",
-    },
-    {
-        "Reform Area": "Tagging and attribution guidance",
-        "Purpose": "Reduce ambiguity on whole-PAP vs component-based tagging.",
-        "Dashboard Feature": "PAP Explorer, large-PAP flags, attribution notes",
-        "Data Science Method": "Rule-based flags and outlier detection",
-        "Priority": "High",
-    },
-    {
-        "Reform Area": "Budget traceability and reconciliation",
-        "Purpose": "Trace climate-tagged PAPs across NEP, GAA, and Actual stages.",
-        "Dashboard Feature": "Budget Cycle Analysis",
-        "Data Science Method": "Variance and utilization-gap analysis",
-        "Priority": "High",
-    },
-    {
-        "Reform Area": "Climate indicators and M&E",
-        "Purpose": "Move from budget tagging toward results monitoring.",
-        "Dashboard Feature": "Future M&E linkage fields",
-        "Data Science Method": "Completeness scoring and data linkage",
-        "Priority": "High",
-    },
-    {
-        "Reform Area": "Integrated CCET platform",
-        "Purpose": "Streamline data submission, review, reporting, and analytics.",
-        "Dashboard Feature": "Unified schema, exports, data quality checks",
-        "Data Science Method": "ETL, data validation, automated reporting",
-        "Priority": "Medium",
-    },
-    {
-        "Reform Area": "Audit guidance clarification",
-        "Purpose": "Improve awareness and application of audit/accountability expectations.",
-        "Dashboard Feature": "Data Quality and Audit Readiness",
-        "Data Science Method": "Rule-based anomaly detection",
-        "Priority": "Medium",
-    },
+INTERNATIONAL_LESSONS = pd.DataFrame([
+    {"Country / Case": "Nepal", "Dashboard Lesson": "Use clearer tagging methodologies and improve coordination between central and sector agencies.", "Design Option": "Add method notes, attribution fields, and ministry-level ranking."},
+    {"Country / Case": "Bangladesh", "Dashboard Lesson": "Use climate budget information strategically in planning and accountability.", "Design Option": "Add executive briefs and budget-cycle interpretation notes."},
+    {"Country / Case": "Indonesia", "Dashboard Lesson": "Strengthen transparency and sector-level use of climate budget data.", "Design Option": "Add downloadable tables, open data outputs, and sector/priority summaries."},
+    {"Country / Case": "France", "Dashboard Lesson": "Move toward more nuanced tagging, including favorable and unfavorable budget effects.", "Design Option": "Future enhancement: add scoring/weighting and climate relevance confidence level."},
 ])
 
 BUDGET_CYCLE_STAGES = pd.DataFrame([
-    {
-        "Stage": "Preparation",
-        "CCET Activity": "Agency climate planning, PAP identification, typology tagging, QAR preparation.",
-        "Dashboard Module": "NCCAP Priorities, PAP Explorer, FGD/KII Challenges",
-        "Data Science Method": "Feature engineering, classification, data profiling",
-    },
-    {
-        "Stage": "Legislation",
-        "CCET Activity": "NEP-to-GAA changes and budget deliberation movement.",
-        "Dashboard Module": "Budget Cycle Analysis, Variance Charts",
-        "Data Science Method": "Comparative analytics and variance analysis",
-    },
-    {
-        "Stage": "Execution",
-        "CCET Activity": "Actual expenditure / utilization tracking where available.",
-        "Dashboard Module": "Actual vs GAA, Trend Analytics",
-        "Data Science Method": "Utilization gap analysis and time-series aggregation",
-    },
-    {
-        "Stage": "Accountability",
-        "CCET Activity": "Reporting, auditability, data validation, and reconciliation.",
-        "Dashboard Module": "Data Quality, Recommendations Tracker",
-        "Data Science Method": "Rule-based validation and anomaly detection",
-    },
+    {"Stage": "Preparation", "CCET Focus": "Agency tagging, typology selection, QAR evidence, budget forms", "Dashboard Module": "PAP Explorer, NCCAP Priorities, Data Quality"},
+    {"Stage": "Legislation", "CCET Focus": "NEP-to-GAA movement and deliberation changes", "Dashboard Module": "Budget Cycle Variance, Agency Concentration"},
+    {"Stage": "Execution", "CCET Focus": "Actual expenditure/utilization where available", "Dashboard Module": "Actual vs GAA Gap, Budget Stage Comparison"},
+    {"Stage": "Accountability", "CCET Focus": "Accomplishment, auditability, validation, feedback", "Dashboard Module": "Data Quality, Recommendations, M&E Readiness"},
 ])
 
 
-# ============================================================
-# DATA FUNCTIONS
-# ============================================================
+st.markdown(
+    f"""
+    <style>
+    .main .block-container {{
+        padding-top: 1.5rem;
+        padding-bottom: 2.0rem;
+        max-width: 1500px;
+    }}
+    div[data-testid="stMetric"] {{
+        background-color: {CARD_BG};
+        border: 1px solid #DDEAF7;
+        padding: 16px 18px;
+        border-radius: 16px;
+        box-shadow: 0 1px 4px rgba(31, 78, 121, 0.06);
+    }}
+    div[data-testid="stMetricLabel"] p {{
+        color: {PRIMARY_BLUE};
+        font-weight: 700;
+    }}
+    .chart-card {{
+        background: #FFFFFF;
+        border: 1px solid #DDEAF7;
+        border-radius: 18px;
+        padding: 18px 18px 12px 18px;
+        margin-bottom: 22px;
+        box-shadow: 0 1px 6px rgba(31, 78, 121, 0.06);
+    }}
+    .chart-title {{
+        font-size: 1.14rem;
+        font-weight: 750;
+        color: {PRIMARY_BLUE};
+        margin-bottom: 0.12rem;
+    }}
+    .chart-subtitle {{
+        color: #4F5B66;
+        font-size: 0.92rem;
+        margin-bottom: 0.6rem;
+    }}
+    .source-note {{
+        color: #64707D;
+        font-size: 0.78rem;
+        line-height: 1.3;
+        margin-top: -0.25rem;
+    }}
+    .interpretation-box {{
+        background: #FFF8E8;
+        border-left: 5px solid {ORANGE};
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin: 8px 0 16px 0;
+        color: #3B3B3B;
+    }}
+    .method-box {{
+        background: #F7FBFF;
+        border-left: 5px solid {DEEP_BLUE};
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin: 8px 0 16px 0;
+        color: #263238;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-def find_default_data_path():
-    for path in DEFAULT_DATA_CANDIDATES:
-        if os.path.exists(path) and os.path.getsize(path) > 0:
-            return path
-    return None
 
 
-def read_csv(source):
-    return pd.read_csv(source, encoding="utf-8-sig")
-
-
-def normalize_text_value(value):
+def clean_string(value):
     if pd.isna(value):
         return ""
-    text = str(value).strip()
-    if text.lower() in {"nan", "none", "null"}:
-        return ""
-    return text
+    return str(value).replace("\ufeff", "").replace("\xa0", " ").strip()
 
 
-def clean_pap_id(value):
-    if pd.isna(value):
-        return ""
-    try:
-        num = float(value)
-        if num.is_integer():
-            return str(int(num))
-    except Exception:
-        pass
-    text = str(value).strip()
-    if text.lower() in {"nan", "none", "null"}:
-        return ""
-    return text
+def normalize_colname(col):
+    col = clean_string(col)
+    col = re.sub(r"\s+", " ", col)
+    return col
 
 
-def classify_alignment(text):
-    text = str(text).lower()
-    hits = sum(1 for kw in PDP_KEYWORDS if kw in text)
-    if hits >= 3:
-        return "Strongly Aligned"
-    if hits >= 1:
-        return "Partially Aligned"
-    return "Weak / Unclassified"
+def as_actual_pesos(raw_dataset_value):
+    return float(raw_dataset_value or 0) * DATASET_VALUE_MULTIPLIER
 
 
-def prepare_data(df):
-    df = df.copy()
-    df.columns = [str(c).strip() for c in df.columns]
-    df = df.rename(columns={"ADAPTION": "ADAPTATION"})
-
-    required_text_cols = [
-        "Type", "DEPARTMENT", "GRIT TAGGING", "AGENCY",
-        "PAP ID", "PAP Description", "TYPOLOGY ID", "TYPOLOGY Description"
-    ]
-    required_num_cols = ["Fiscal_Year", "ADAPTATION", "MITIGATION", "TOTAL"]
-
-    for col in required_text_cols:
-        if col not in df.columns:
-            df[col] = ""
-
-    for col in required_num_cols:
-        if col not in df.columns:
-            df[col] = 0
-
-    df["Fiscal_Year"] = pd.to_numeric(df["Fiscal_Year"], errors="coerce")
-    df = df[df["Fiscal_Year"].notna()].copy()
-    df["Fiscal_Year"] = df["Fiscal_Year"].astype(int)
-
-    for col in ["ADAPTATION", "MITIGATION", "TOTAL"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-
-    for col in ["Type", "DEPARTMENT", "GRIT TAGGING", "AGENCY", "PAP Description", "TYPOLOGY ID", "TYPOLOGY Description"]:
-        df[col] = df[col].apply(normalize_text_value)
-
-    df["PAP ID"] = df["PAP ID"].apply(clean_pap_id)
-
-    df["Type"] = df["Type"].str.strip()
-    df["GRIT TAGGING"] = df["GRIT TAGGING"].str.upper().str.strip().replace({"": "Unclassified"})
-    df["DEPARTMENT"] = df["DEPARTMENT"].replace({"": "Unspecified Department"})
-    df["AGENCY"] = df["AGENCY"].replace({"": "Unspecified Agency"})
-
-    df["Agency Display"] = np.where(
-        df["DEPARTMENT"].str.lower().eq(df["AGENCY"].str.lower()),
-        df["AGENCY"],
-        df["DEPARTMENT"] + " - " + df["AGENCY"],
-    )
-
-    typo = df["TYPOLOGY ID"].astype(str).str.upper().str.strip()
-    df["NCCAP Code"] = typo.str.extract(r"^[AM](\d)", expand=False).fillna("")
-    df["NCCAP Thematic Priority"] = df["NCCAP Code"].map(NCCAP_PRIORITY).fillna("Unclassified")
-    df["NCCAP Priority"] = df["NCCAP Thematic Priority"]
-
-    pillar_from_typology = np.select(
-        [typo.str.startswith("A"), typo.str.startswith("M")],
-        ["Adaptation", "Mitigation"],
-        default="",
-    )
-
-    pillar_from_amount = np.select(
-        [
-            (df["ADAPTATION"] > 0) & (df["MITIGATION"] <= 0),
-            (df["MITIGATION"] > 0) & (df["ADAPTATION"] <= 0),
-            (df["ADAPTATION"] > 0) & (df["MITIGATION"] > 0),
-        ],
-        ["Adaptation", "Mitigation", "Adaptation + Mitigation"],
-        default="Unclassified",
-    )
-
-    df["Climate Pillar"] = np.where(pillar_from_typology != "", pillar_from_typology, pillar_from_amount)
-
-    df["Text Corpus"] = (
-        df["PAP Description"].astype(str) + " " +
-        df["TYPOLOGY Description"].astype(str) + " " +
-        df["AGENCY"].astype(str) + " " +
-        df["DEPARTMENT"].astype(str)
-    )
-    df["PDP / Executive Agenda Alignment"] = df["Text Corpus"].apply(classify_alignment)
-
-    df["TOTAL_BILLION"] = df["TOTAL"] / 1_000_000
-    df["ADAPTATION_BILLION"] = df["ADAPTATION"] / 1_000_000
-    df["MITIGATION_BILLION"] = df["MITIGATION"] / 1_000_000
-
-    return df
+def raw_to_billion(raw_dataset_value):
+    return as_actual_pesos(raw_dataset_value) / 1_000_000_000
 
 
-@st.cache_data(show_spinner="Loading CCET dataset...")
-def load_default_data():
-    data_path = find_default_data_path()
-    if data_path is None:
-        st.error(
-            "Default CSV dataset was not found. Please upload the cleaned CCET CSV from the sidebar, "
-            "or save it as `data/ccet_data.csv`."
-        )
-        st.stop()
-    return prepare_data(read_csv(data_path)), data_path
+def raw_to_trillion(raw_dataset_value):
+    return as_actual_pesos(raw_dataset_value) / 1_000_000_000_000
 
 
-# ============================================================
-# FORMATTERS
-# ============================================================
-
-def raw_to_actual_pesos(raw_value):
-    return float(raw_value or 0) * DATASET_VALUE_MULTIPLIER
-
-
-def raw_to_billion(raw_value):
-    return float(raw_value or 0) / 1_000_000
-
-
-def peso_from_raw(raw_value):
-    value = raw_to_actual_pesos(raw_value)
-    return peso_from_actual(value)
-
-
-def peso_from_actual(value):
+def peso_from_raw(raw_dataset_value):
+    value = as_actual_pesos(raw_dataset_value)
     if pd.isna(value):
         return "N/A"
-    value = float(value)
     if abs(value) >= 1_000_000_000_000:
         return f"₱{value / 1_000_000_000_000:,.3f}T"
     if abs(value) >= 1_000_000_000:
@@ -453,7 +315,6 @@ def peso_from_actual(value):
 def peso_billion(value):
     if pd.isna(value):
         return "N/A"
-    value = float(value)
     if abs(value) >= 1000:
         return f"₱{value / 1000:,.3f}T"
     return f"₱{value:,.2f}B"
@@ -468,929 +329,795 @@ def signed_peso_billion(value):
     return f"{sign}₱{value:,.2f}B"
 
 
-def percent_label(value, decimals=2):
+def pct(value, decimals=1):
     if pd.isna(value):
         return "N/A"
     return f"{value:.{decimals}f}%"
 
 
-def pct(numerator, denominator):
-    if denominator == 0 or pd.isna(denominator):
+def safe_divide(numerator, denominator):
+    if denominator is None or denominator == 0 or pd.isna(denominator):
         return np.nan
-    return numerator / denominator * 100
+    return numerator / denominator
 
 
-def wrap_label(text, width=44):
-    text = str(text)
-    if len(text) <= width:
-        return text
-    words = text.split()
-    lines = []
-    line = ""
-    for word in words:
-        if len(line + " " + word) <= width:
-            line = (line + " " + word).strip()
-        else:
-            lines.append(line)
-            line = word
-    if line:
-        lines.append(line)
-    return "<br>".join(lines[:3])
 
 
-def safe_group_sum(data, group_cols, value_col="TOTAL", top_n=None):
-    if data.empty:
-        return pd.DataFrame(columns=group_cols + [value_col])
-    out = data.groupby(group_cols, as_index=False)[value_col].sum().sort_values(value_col, ascending=False)
-    if top_n:
-        out = out.head(top_n)
+def classify_pdp_alignment(text):
+    text = str(text).lower()
+    hits = sum(1 for kw in PDP_KEYWORDS if kw in text)
+    if hits >= 3:
+        return "Strongly Aligned"
+    if hits >= 1:
+        return "Partially Aligned"
+    return "Weak / Unclassified"
+
+
+def detect_and_rename_columns(df):
+    df = df.copy()
+    df.columns = [normalize_colname(c) for c in df.columns]
+
+    rename_map = {}
+    for col in df.columns:
+        key = col.upper().replace("_", " ").replace("-", " ")
+        key = re.sub(r"\s+", " ", key).strip()
+        compact = key.replace(" ", "")
+
+        if key in {"FISCAL YEAR", "FISCAL_YEAR", "FY"} or compact == "FISCALYEAR":
+            rename_map[col] = "Fiscal_Year"
+        elif key == "ADAPTION":
+            rename_map[col] = "ADAPTATION"
+        elif key == "ADAPTATION":
+            rename_map[col] = "ADAPTATION"
+        elif key == "MITIGATION":
+            rename_map[col] = "MITIGATION"
+        elif key == "TOTAL":
+            rename_map[col] = "TOTAL"
+        elif key == "GRIT TAGGING" or compact in {"GRITTAGGING", "INSTITUTIONTYPE", "INSTITUTIONTAGGING"}:
+            rename_map[col] = "GRIT TAGGING"
+        elif key == "DEPARTMENT":
+            rename_map[col] = "DEPARTMENT"
+        elif key == "AGENCY":
+            rename_map[col] = "AGENCY"
+        elif key in {"PAP ID", "PAPID"} or compact == "PAPID":
+            rename_map[col] = "PAP ID"
+        elif key in {"PAP DESCRIPTION", "PAPDESC"} or compact == "PAPDESCRIPTION":
+            rename_map[col] = "PAP Description"
+        elif key in {"TYPOLOGY ID", "TYPOLOGYID"} or compact == "TYPOLOGYID":
+            rename_map[col] = "TYPOLOGY ID"
+        elif key in {"TYPOLOGY DESCRIPTION", "TYPOLOGYDESC"} or compact == "TYPOLOGYDESCRIPTION":
+            rename_map[col] = "TYPOLOGY Description"
+        elif key == "TYPE":
+            rename_map[col] = "Type"
+
+    df = df.rename(columns=rename_map)
+    return df
+
+
+def standardize_type(value):
+    v = clean_string(value).upper()
+    if v in {"GAA", "GENERAL APPROPRIATIONS ACT"}:
+        return "GAA"
+    if v in {"NEP", "NATIONAL EXPENDITURE PROGRAM"}:
+        return "NEP"
+    if v in {"ACTUAL", "ACTUALS", "ACTUAL EXPENDITURE", "ACTUAL EXPENDITURES"}:
+        return "Actual"
+    return clean_string(value) if clean_string(value) else "Unclassified"
+
+
+def standardize_grit(value):
+    v = clean_string(value).upper()
+    v = v.replace("NATIONAL GOVERNMENT AGENCY", "NGA")
+    v = v.replace("NATIONAL GOVERNMENT AGENCIES", "NGA")
+    v = v.replace("STATE UNIVERSITIES AND COLLEGES", "SUC")
+    v = v.replace("STATE UNIVERSITY AND COLLEGE", "SUC")
+    v = v.replace("GOVERNMENT OWNED AND CONTROLLED CORPORATION", "GOCC")
+    v = v.replace("GOVERNMENT-OWNED AND CONTROLLED CORPORATION", "GOCC")
+    v = v.replace("GOVERNMENT-OWNED OR -CONTROLLED CORPORATION", "GOCC")
+    v = v.strip()
+    if v in {"", "NAN", "NONE", "NULL", "NA", "N/A"}:
+        return "Unclassified"
+    if "GOCC" in v:
+        return "GOCC"
+    if v == "SUC" or "SUC" in v:
+        return "SUC"
+    if v == "NGA" or "NGA" in v:
+        return "NGA"
+    return v
+
+
+def prepare_data(df):
+    df = detect_and_rename_columns(df)
+
+    required_text_cols = [
+        "Type", "DEPARTMENT", "GRIT TAGGING", "AGENCY", "PAP ID", "PAP Description",
+        "TYPOLOGY ID", "TYPOLOGY Description",
+    ]
+    required_num_cols = ["Fiscal_Year", "ADAPTATION", "MITIGATION", "TOTAL"]
+
+    for col in required_text_cols:
+        if col not in df.columns:
+            df[col] = ""
+        df[col] = df[col].apply(clean_string)
+
+    for col in required_num_cols:
+        if col not in df.columns:
+            df[col] = 0
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df = df[df["Fiscal_Year"].notna()].copy()
+    df["Fiscal_Year"] = df["Fiscal_Year"].astype(int)
+
+    for col in ["ADAPTATION", "MITIGATION", "TOTAL"]:
+        df[col] = df[col].fillna(0)
+
+    df["Type"] = df["Type"].apply(standardize_type)
+    df["GRIT TAGGING"] = df["GRIT TAGGING"].apply(standardize_grit)
+    df["Institution Type"] = df["GRIT TAGGING"]
+
+    # Strengthen GRIT TAGGING recovery when the field is blank but department/agency indicates SUC or GOCC.
+    agency_text = (df["DEPARTMENT"] + " " + df["AGENCY"]).str.upper()
+    df.loc[(df["GRIT TAGGING"] == "Unclassified") & agency_text.str.contains("STATE UNIVERSITY|UNIVERSITY|COLLEGE", na=False), "GRIT TAGGING"] = "SUC"
+    df.loc[(df["GRIT TAGGING"] == "Unclassified") & agency_text.str.contains("CORPORATION|AUTHORITY|INSURANCE|NATIONAL FOOD AUTHORITY|IRRIGATION", na=False), "GRIT TAGGING"] = "GOCC"
+    df["Institution Type"] = df["GRIT TAGGING"]
+
+    for col in ["DEPARTMENT", "AGENCY", "PAP ID", "PAP Description", "TYPOLOGY ID", "TYPOLOGY Description"]:
+        df[col] = df[col].fillna("").apply(clean_string)
+
+    typo = df["TYPOLOGY ID"].str.upper().str.replace(" ", "", regex=False)
+    df["Climate Pillar"] = np.where(
+        typo.str.startswith("M"),
+        "Mitigation",
+        np.where(typo.str.startswith("A"), "Adaptation", "Unclassified")
+    )
+
+    # Where typology is missing but amount split exists, infer pillar only for display.
+    df.loc[(df["Climate Pillar"] == "Unclassified") & (df["ADAPTATION"] > 0) & (df["MITIGATION"] <= 0), "Climate Pillar"] = "Adaptation"
+    df.loc[(df["Climate Pillar"] == "Unclassified") & (df["MITIGATION"] > 0) & (df["ADAPTATION"] <= 0), "Climate Pillar"] = "Mitigation"
+
+    df["NCCAP Code"] = typo.str.extract(r"^[AM](\d)", expand=False).fillna("")
+    df["NCCAP Priority"] = df["NCCAP Code"].map(NCCAP_PRIORITY).fillna("Unclassified")
+
+    combined_text = (
+        df["PAP Description"].astype(str) + " " +
+        df["TYPOLOGY Description"].astype(str) + " " +
+        df["AGENCY"].astype(str) + " " +
+        df["DEPARTMENT"].astype(str)
+    )
+    df["PDP / Executive Agenda Alignment"] = combined_text.apply(classify_pdp_alignment)
+
+    # Combined labels prevent generic agency names from appearing alone.
+    df["Agency Label"] = np.where(
+        df["DEPARTMENT"].str.strip().ne(""),
+        df["DEPARTMENT"] + " - " + df["AGENCY"],
+        df["AGENCY"],
+    )
+    df["Agency Label"] = df["Agency Label"].str.replace(r"\s+-\s+$", "", regex=True).str.strip()
+    df["Agency Unit"] = (
+        df["GRIT TAGGING"].astype(str) + " | " +
+        df["DEPARTMENT"].astype(str) + " | " +
+        df["AGENCY"].astype(str)
+    )
+
+    df["TOTAL_B"] = df["TOTAL"].apply(raw_to_billion)
+    df["ADAPTATION_B"] = df["ADAPTATION"].apply(raw_to_billion)
+    df["MITIGATION_B"] = df["MITIGATION"].apply(raw_to_billion)
+
+    return df
+
+
+@st.cache_data(show_spinner="Reading CSV file...")
+def read_csv_cached(source):
+    return pd.read_csv(source, encoding="utf-8-sig")
+
+
+@st.cache_data(show_spinner="Loading and preparing CCET dataset...")
+def load_and_prepare_from_path(path):
+    return prepare_data(pd.read_csv(path, encoding="utf-8-sig"))
+
+
+def find_default_data_path():
+    for path in DATA_CANDIDATES:
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            return path
+    return None
+
+
+
+def filter_options(series):
+    vals = sorted([v for v in series.dropna().unique().tolist() if clean_string(v) != ""])
+    return ["All"] + vals
+
+
+def group_sum_b(df, group_cols, value_col="TOTAL"):
+    if df.empty:
+        return pd.DataFrame(columns=group_cols + ["Amount_B"])
+    out = df.groupby(group_cols, as_index=False)[value_col].sum()
+    out["Amount_B"] = out[value_col].apply(raw_to_billion)
     return out
 
 
-def safe_top_value(dataframe, group_col, value_col="TOTAL"):
+def safe_top(dataframe, group_col, value_col="TOTAL"):
     if dataframe.empty or group_col not in dataframe.columns:
-        return "No data", 0
-    temp = safe_group_sum(dataframe, [group_col], value_col=value_col, top_n=1)
-    if temp.empty:
-        return "No data", 0
-    return temp.iloc[0][group_col], temp.iloc[0][value_col]
+        return "No data", 0, np.nan
+    d = dataframe.groupby(group_col, as_index=False)[value_col].sum().sort_values(value_col, ascending=False)
+    if d.empty or d[value_col].sum() == 0:
+        return "No data", 0, np.nan
+    row = d.iloc[0]
+    return row[group_col], row[value_col], row[value_col] / d[value_col].sum() * 100
 
 
-# ============================================================
-# UI HELPERS
-# ============================================================
+def budget_stage_pivot(dataframe, years=None):
+    d = dataframe.copy()
+    if years is not None:
+        d = d[d["Fiscal_Year"].isin(years)]
+    d = d[d["Type"].isin(["NEP", "GAA", "Actual"])]
+    if d.empty:
+        return pd.DataFrame(columns=["Fiscal_Year", "NEP", "GAA", "Actual"])
+    p = d.groupby(["Fiscal_Year", "Type"], as_index=False)["TOTAL"].sum()
+    p["Amount_B"] = p["TOTAL"].apply(raw_to_billion)
+    pivot = p.pivot(index="Fiscal_Year", columns="Type", values="Amount_B").reset_index()
+    for col in ["NEP", "GAA", "Actual"]:
+        if col not in pivot.columns:
+            pivot[col] = np.nan
+    pivot = pivot[["Fiscal_Year", "NEP", "GAA", "Actual"]].sort_values("Fiscal_Year")
+    pivot["GAA minus NEP"] = pivot["GAA"] - pivot["NEP"]
+    pivot["Actual minus GAA"] = pivot["Actual"] - pivot["GAA"]
+    pivot["Actual vs GAA (%)"] = (pivot["Actual"] - pivot["GAA"]) / pivot["GAA"] * 100
+    return pivot
 
-def filter_dropdown(label, values, key=None):
-    clean_values = sorted([v for v in pd.Series(values).dropna().unique() if str(v).strip() != ""])
-    return st.sidebar.selectbox(label, ["All"] + clean_values, key=key)
+
+def ranking_base(dataframe, selected_type="GAA"):
+    if selected_type == "Use active filters":
+        return dataframe.copy()
+    if selected_type in ["GAA", "NEP", "Actual"]:
+        return dataframe[dataframe["Type"] == selected_type].copy()
+    return dataframe.copy()
 
 
-def apply_report_layout(
-    fig,
-    title=None,
-    subtitle=None,
-    height=720,
-    left=80,
-    right=70,
-    top=125,
-    bottom=115,
-    source_note=None,
-    legend_y=1.02,
-    showlegend=True,
-):
-    title_text = title or ""
-    if subtitle:
-        title_text += f"<br><span style='font-size:14px;color:#4F4F4F'>{subtitle}</span>"
+def build_quality_flags(dataframe):
+    f = dataframe.copy()
+    flags = {
+        "Missing department": f["DEPARTMENT"].eq("").sum(),
+        "Missing agency": f["AGENCY"].eq("").sum(),
+        "Missing GRIT TAGGING / institution type": f["GRIT TAGGING"].eq("Unclassified").sum(),
+        "Missing PAP ID": f["PAP ID"].eq("").sum(),
+        "Missing typology ID": f["TYPOLOGY ID"].eq("").sum(),
+        "Missing typology description": f["TYPOLOGY Description"].eq("").sum(),
+        "Zero or blank total": (f["TOTAL"].fillna(0) == 0).sum(),
+        "Negative total": (f["TOTAL"].fillna(0) < 0).sum(),
+        "Adaptation + Mitigation ≠ Total": ((f["ADAPTATION"].fillna(0) + f["MITIGATION"].fillna(0) - f["TOTAL"].fillna(0)).abs() > 1).sum(),
+        "Possible duplicate PAP-stage records": f.duplicated(
+            subset=["Fiscal_Year", "Type", "GRIT TAGGING", "DEPARTMENT", "AGENCY", "PAP ID", "TYPOLOGY ID"],
+            keep=False,
+        ).sum(),
+        "Unclassified NCCAP priority": f["NCCAP Priority"].eq("Unclassified").sum(),
+    }
+    return pd.DataFrame({"Data Quality Check": list(flags.keys()), "Flagged Records": list(flags.values())})
 
+
+def quality_mask(dataframe, issue):
+    f = dataframe.copy()
+    if issue == "Missing department":
+        return f["DEPARTMENT"].eq("")
+    if issue == "Missing agency":
+        return f["AGENCY"].eq("")
+    if issue == "Missing GRIT TAGGING / institution type":
+        return f["GRIT TAGGING"].eq("Unclassified")
+    if issue == "Missing PAP ID":
+        return f["PAP ID"].eq("")
+    if issue == "Missing typology ID":
+        return f["TYPOLOGY ID"].eq("")
+    if issue == "Missing typology description":
+        return f["TYPOLOGY Description"].eq("")
+    if issue == "Zero or blank total":
+        return f["TOTAL"].fillna(0) == 0
+    if issue == "Negative total":
+        return f["TOTAL"].fillna(0) < 0
+    if issue == "Adaptation + Mitigation ≠ Total":
+        return ((f["ADAPTATION"].fillna(0) + f["MITIGATION"].fillna(0) - f["TOTAL"].fillna(0)).abs() > 1)
+    if issue == "Possible duplicate PAP-stage records":
+        return f.duplicated(subset=["Fiscal_Year", "Type", "GRIT TAGGING", "DEPARTMENT", "AGENCY", "PAP ID", "TYPOLOGY ID"], keep=False)
+    if issue == "Unclassified NCCAP priority":
+        return f["NCCAP Priority"].eq("Unclassified")
+    return pd.Series(False, index=f.index)
+
+
+
+def polish_fig(fig, height=620, legend="bottom", left=80, right=55, top=25, bottom=80):
     fig.update_layout(
         template="plotly_white",
         height=height,
         margin=dict(l=left, r=right, t=top, b=bottom),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        font=dict(family="Arial", size=12, color=DARK_TEXT),
-        title=dict(
-            text=title_text,
-            x=0.5,
-            xanchor="center",
-            y=0.98,
-            yanchor="top",
-            font=dict(size=20, color=PRIMARY_BLUE),
-        ),
-        showlegend=showlegend,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=legend_y,
-            xanchor="center",
-            x=0.5,
-            bgcolor="rgba(255,255,255,0.96)",
-            bordercolor="#D9E2F3",
-            borderwidth=1,
-            font=dict(size=11),
-        ),
+        font=dict(family="Arial, sans-serif", size=12, color=DARK_TEXT),
+        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial"),
     )
-    fig.update_xaxes(showline=True, linecolor="#BFBFBF", ticks="outside")
-    fig.update_yaxes(showline=True, linecolor="#BFBFBF", ticks="outside", gridcolor=LIGHT_GRAY)
-    if source_note:
-        fig.add_annotation(
-            text=source_note,
-            xref="paper",
-            yref="paper",
-            x=0,
-            y=-0.20,
-            showarrow=False,
-            align="left",
-            font=dict(size=10.5, color="#555555"),
+    if legend == "bottom":
+        fig.update_layout(
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.16,
+                xanchor="center",
+                x=0.5,
+                bgcolor="rgba(255,255,255,0.95)",
+                bordercolor="#D9E2F3",
+                borderwidth=1,
+                font=dict(size=10),
+            )
         )
+    elif legend == "right":
+        fig.update_layout(
+            legend=dict(
+                orientation="v",
+                yanchor="middle",
+                y=0.5,
+                xanchor="left",
+                x=1.02,
+                bgcolor="rgba(255,255,255,0.95)",
+                bordercolor="#D9E2F3",
+                borderwidth=1,
+                font=dict(size=10),
+            )
+        )
+    elif legend == "none":
+        fig.update_layout(showlegend=False)
+
+    fig.update_xaxes(automargin=True, showline=True, linewidth=1, linecolor="#BFBFBF", gridcolor=LIGHT_GRAY)
+    fig.update_yaxes(automargin=True, showline=True, linewidth=1, linecolor="#BFBFBF", gridcolor=LIGHT_GRAY)
     return fig
 
 
-def render_chart(fig, file_stem, title="Chart", height=720, width=1450):
+def chart_card(title, subtitle, fig, file_stem, source_note=None, height=620, width=1450):
+    st.markdown('<div class="chart-card">', unsafe_allow_html=True)
+    st.markdown(f'<div class="chart-title">{title}</div>', unsafe_allow_html=True)
+    if subtitle:
+        st.markdown(f'<div class="chart-subtitle">{subtitle}</div>', unsafe_allow_html=True)
     st.plotly_chart(
         fig,
         use_container_width=True,
         config={
             "displaylogo": False,
-            "toImageButtonOptions": {
-                "format": "png",
-                "filename": file_stem,
-                "height": height,
-                "width": width,
-                "scale": 3,
-            },
+            "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+            "toImageButtonOptions": {"format": "png", "filename": file_stem, "height": height, "width": width, "scale": 3},
         },
     )
-    c1, c2 = st.columns(2)
+    if source_note:
+        st.markdown(f'<div class="source-note">{source_note}</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1, 1, 4])
     with c1:
         st.download_button(
-            f"Download {title} HTML",
-            fig.to_html(include_plotlyjs="cdn", full_html=True).encode("utf-8"),
+            "HTML",
+            data=fig.to_html(include_plotlyjs="cdn", full_html=True).encode("utf-8"),
             file_name=f"{file_stem}.html",
             mime="text/html",
             key=f"{file_stem}_html",
+            use_container_width=True,
         )
     with c2:
         try:
-            png = fig.to_image(format="png", width=width, height=height, scale=3)
+            png_bytes = fig.to_image(format="png", width=width, height=height, scale=3)
             st.download_button(
-                f"Download {title} PNG",
-                png,
+                "PNG",
+                data=png_bytes,
                 file_name=f"{file_stem}.png",
                 mime="image/png",
                 key=f"{file_stem}_png",
+                use_container_width=True,
             )
         except Exception:
-            st.caption("PNG export requires `kaleido`. Add `kaleido` to requirements.txt.")
+            st.caption("PNG export requires `kaleido`.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
-def smart_note(text):
-    st.markdown(
-        f"""
-        <div style="background:#F7FBFF;border-left:5px solid {DEEP_BLUE};
-        padding:0.9rem 1rem;border-radius:0.45rem;margin:0.5rem 0 1rem 0;">
-        {text}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
-# ============================================================
-# ANALYTICS FUNCTIONS
-# ============================================================
+def fig_climate_budget_share(df):
+    gaa = df[(df["Type"] == "GAA") & (df["Fiscal_Year"].isin(NATIONAL_BUDGET_REFERENCE_B["Fiscal_Year"]))]
+    d = gaa.groupby("Fiscal_Year", as_index=False)["TOTAL"].sum()
+    d["Climate-Tagged GAA (Billion Pesos)"] = d["TOTAL"].apply(raw_to_billion)
+    d = NATIONAL_BUDGET_REFERENCE_B.merge(d[["Fiscal_Year", "Climate-Tagged GAA (Billion Pesos)"]], on="Fiscal_Year", how="left")
+    d["Climate-Tagged GAA (Billion Pesos)"] = d["Climate-Tagged GAA (Billion Pesos)"].fillna(0)
+    d["Climate-Tagged GAA (Trillion Pesos)"] = d["Climate-Tagged GAA (Billion Pesos)"] / 1000
+    d["Total National Budget (Trillion Pesos)"] = d["Total National Budget (Billion Pesos)"] / 1000
+    d["Share of National Budget (%)"] = d["Climate-Tagged GAA (Billion Pesos)"] / d["Total National Budget (Billion Pesos)"] * 100
+    d["FY"] = "FY" + d["Fiscal_Year"].astype(str)
 
-def climate_budget_share_data(data):
-    gaa = data[data["Type"].str.upper().eq("GAA")].copy()
-    annual = gaa.groupby("Fiscal_Year", as_index=False)["TOTAL"].sum()
-    annual["Climate-Tagged GAA (Billion Pesos)"] = annual["TOTAL"].apply(raw_to_billion)
-    merged = NATIONAL_BUDGET_BILLION.merge(annual[["Fiscal_Year", "Climate-Tagged GAA (Billion Pesos)"]], on="Fiscal_Year", how="left")
-    merged["Climate-Tagged GAA (Billion Pesos)"] = merged["Climate-Tagged GAA (Billion Pesos)"].fillna(0)
-    merged["Share of National Budget (%)"] = (
-        merged["Climate-Tagged GAA (Billion Pesos)"] / merged["Total National Budget (Billion Pesos)"] * 100
-    )
-    merged["Fiscal Year"] = "FY" + merged["Fiscal_Year"].astype(str)
-    merged["Climate-Tagged GAA (Trillion Pesos)"] = merged["Climate-Tagged GAA (Billion Pesos)"] / 1000
-    merged["Total National Budget (Trillion Pesos)"] = merged["Total National Budget (Billion Pesos)"] / 1000
-    return merged
-
-
-def budget_stage_wide(data):
-    d = data.copy()
-    stage = d.pivot_table(index="Fiscal_Year", columns="Type", values="TOTAL", aggfunc="sum").reset_index()
-    for col in ["NEP", "GAA", "Actual"]:
-        if col not in stage.columns:
-            stage[col] = np.nan
-    stage = stage.sort_values("Fiscal_Year")
-    for col in ["NEP", "GAA", "Actual"]:
-        stage[col + " (Billion Pesos)"] = stage[col] / 1_000_000
-    stage["GAA minus NEP (Billion Pesos)"] = stage["GAA (Billion Pesos)"] - stage["NEP (Billion Pesos)"]
-    stage["Actual minus GAA (Billion Pesos)"] = stage["Actual (Billion Pesos)"] - stage["GAA (Billion Pesos)"]
-    stage["Actual vs GAA (%)"] = (stage["Actual"] - stage["GAA"]) / stage["GAA"] * 100
-    stage["Fiscal Year"] = "FY" + stage["Fiscal_Year"].astype(str)
-    return stage
-
-
-def data_quality_masks(data):
-    tolerance = 1
-    masks = {
-        "Missing department": data["DEPARTMENT"].eq("Unspecified Department") | data["DEPARTMENT"].eq(""),
-        "Missing agency": data["AGENCY"].eq("Unspecified Agency") | data["AGENCY"].eq(""),
-        "Missing GRIT TAGGING": data["GRIT TAGGING"].eq("Unclassified") | data["GRIT TAGGING"].eq(""),
-        "Missing PAP ID": data["PAP ID"].eq(""),
-        "Missing typology ID": data["TYPOLOGY ID"].eq(""),
-        "Missing typology description": data["TYPOLOGY Description"].eq(""),
-        "Zero or blank total": data["TOTAL"].fillna(0).eq(0),
-        "Negative total": data["TOTAL"].fillna(0).lt(0),
-        "Adaptation + Mitigation ≠ Total": (
-            (data["ADAPTATION"].fillna(0) + data["MITIGATION"].fillna(0) - data["TOTAL"].fillna(0)).abs() > tolerance
-        ),
-        "Duplicate PAP-stage records": data.duplicated(
-            subset=["Fiscal_Year", "Type", "DEPARTMENT", "AGENCY", "PAP ID", "TYPOLOGY ID"],
-            keep=False,
-        ),
-        "Unclassified NCCAP priority": data["NCCAP Thematic Priority"].eq("Unclassified"),
-    }
-    return masks
-
-
-def data_quality_summary(data):
-    masks = data_quality_masks(data)
-    out = pd.DataFrame([
-        {
-            "Check": name,
-            "Flagged Records": int(mask.sum()),
-            "Share of Filtered Records (%)": pct(int(mask.sum()), len(data)) if len(data) else 0,
-        }
-        for name, mask in masks.items()
-    ])
-    return out
-
-
-def quality_score(data):
-    if len(data) == 0:
-        return 0
-    masks = data_quality_masks(data)
-    critical = (
-        masks["Missing typology ID"] |
-        masks["Zero or blank total"] |
-        masks["Adaptation + Mitigation ≠ Total"] |
-        masks["Duplicate PAP-stage records"]
-    )
-    return max(0, 100 - critical.mean() * 100)
-
-
-def apply_filters(df):
-    f = df.copy()
-    if st.session_state.get("year_filter") != "All":
-        f = f[f["Fiscal_Year"] == int(st.session_state["year_filter"])]
-    if st.session_state.get("type_filter") != "All":
-        f = f[f["Type"] == st.session_state["type_filter"]]
-    if st.session_state.get("grit_filter") != "All":
-        f = f[f["GRIT TAGGING"] == st.session_state["grit_filter"]]
-    if st.session_state.get("dept_filter") != "All":
-        f = f[f["DEPARTMENT"] == st.session_state["dept_filter"]]
-    if st.session_state.get("pillar_filter") != "All":
-        f = f[f["Climate Pillar"] == st.session_state["pillar_filter"]]
-    if st.session_state.get("nccap_filter") != "All":
-        f = f[f["NCCAP Thematic Priority"] == st.session_state["nccap_filter"]]
-    if st.session_state.get("pdp_filter") != "All":
-        f = f[f["PDP / Executive Agenda Alignment"] == st.session_state["pdp_filter"]]
-    return f
-
-
-# ============================================================
-# CHART BUILDERS
-# ============================================================
-
-def build_climate_budget_share_chart(data):
-    d = climate_budget_share_data(data)
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(
         go.Bar(
-            x=d["Fiscal Year"],
-            y=d["Climate-Tagged GAA (Trillion Pesos)"],
-            name="Climate-Tagged GAA",
+            x=d["FY"], y=d["Climate-Tagged GAA (Trillion Pesos)"], name="Climate-tagged GAA",
             marker=dict(color=DEEP_BLUE, line=dict(color="white", width=1)),
-            text=[peso_billion(v) for v in d["Climate-Tagged GAA (Billion Pesos)"]],
-            textposition="outside",
-            cliponaxis=False,
-            hovertemplate="<b>%{x}</b><br>Climate-Tagged GAA: %{text}<extra></extra>",
+            hovertemplate="<b>%{x}</b><br>Climate-tagged GAA: ₱%{customdata:,.2f}B<extra></extra>",
+            customdata=d["Climate-Tagged GAA (Billion Pesos)"],
         ),
         secondary_y=False,
     )
     fig.add_trace(
         go.Bar(
-            x=d["Fiscal Year"],
-            y=d["Total National Budget (Trillion Pesos)"],
-            name="Total National Budget",
+            x=d["FY"], y=d["Total National Budget (Trillion Pesos)"], name="Total national budget",
             marker=dict(color=GRAY, line=dict(color="white", width=1)),
-            text=[f"₱{v:.3f}T" for v in d["Total National Budget (Trillion Pesos)"]],
-            textposition="outside",
-            cliponaxis=False,
-            hovertemplate="<b>%{x}</b><br>Total National Budget: %{text}<extra></extra>",
+            hovertemplate="<b>%{x}</b><br>Total national budget: ₱%{customdata:,.2f}B<extra></extra>",
+            customdata=d["Total National Budget (Billion Pesos)"],
         ),
         secondary_y=False,
     )
     fig.add_trace(
         go.Scatter(
-            x=d["Fiscal Year"],
-            y=d["Share of National Budget (%)"],
-            name="Share of National Budget",
-            mode="lines+markers+text",
-            line=dict(color=ORANGE, width=4),
-            marker=dict(size=10, color=ORANGE),
-            text=[percent_label(v, 1) for v in d["Share of National Budget (%)"]],
-            textposition="top center",
-            hovertemplate="<b>%{x}</b><br>Share: %{y:.2f}%<extra></extra>",
+            x=d["FY"], y=d["Share of National Budget (%)"], name="Share of national budget",
+            mode="lines+markers",
+            line=dict(color=ORANGE, width=3), marker=dict(size=9, color=ORANGE),
+            hovertemplate="<b>%{x}</b><br>Share: %{y:.1f}%<extra></extra>",
         ),
         secondary_y=True,
     )
-    apply_report_layout(
-        fig,
-        title="<b>Climate-Tagged GAA, Total National Budget, and Share of National Budget</b>",
-        subtitle="Bars show budget amounts; line shows share of national budget.",
-        height=760,
-        bottom=135,
-        source_note="Method: Climate-tagged GAA ÷ total national budget × 100. When filters are active, climate-tagged GAA reflects the selected subset.",
-    )
     fig.update_layout(barmode="group")
-    fig.update_yaxes(title_text="Amount (Trillion Pesos)", range=[0, 7.3], secondary_y=False)
-    fig.update_yaxes(title_text="Share of National Budget (%)", range=[0, max(22, d["Share of National Budget (%)"].max() * 1.25)], ticksuffix="%", secondary_y=True, showgrid=False)
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
+    fig.update_yaxes(title_text="Amount (trillion pesos)", secondary_y=False, rangemode="tozero")
+    fig.update_yaxes(title_text="Share (%)", ticksuffix="%", secondary_y=True, rangemode="tozero", showgrid=False)
+    fig.update_xaxes(title_text="Fiscal year")
+    return polish_fig(fig, height=610, legend="bottom", left=75, right=80, bottom=110)
 
 
-def build_budget_by_type_chart(data):
-    stage = safe_group_sum(data, ["Fiscal_Year", "Type"], "TOTAL")
-    stage["Amount (Billion Pesos)"] = stage["TOTAL"] / 1_000_000
-    stage["Fiscal Year"] = "FY" + stage["Fiscal_Year"].astype(str)
-    fig = px.line(
-        stage.sort_values("Fiscal_Year"),
-        x="Fiscal Year",
-        y="Amount (Billion Pesos)",
-        color="Type",
-        markers=True,
-        color_discrete_sequence=CHART_COLOR_SEQUENCE,
-        category_orders={"Type": ["NEP", "GAA", "Actual"]},
-    )
-    fig.update_traces(line=dict(width=3), marker=dict(size=8))
-    apply_report_layout(
-        fig,
-        title="<b>Climate-Tagged Budget by Budget Stage</b>",
-        subtitle="NEP, GAA, and Actual values across available fiscal years.",
-        height=680,
-        bottom=125,
-        source_note="Method: Sum of TOTAL by fiscal year and budget type. Values are expressed in billion pesos.",
-    )
-    fig.update_yaxes(title_text="Amount (Billion Pesos)")
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
-
-
-def build_budget_cycle_variance_chart(data):
-    w = budget_stage_wide(data)
-    fig = go.Figure()
-    variance_cols = ["GAA minus NEP (Billion Pesos)", "Actual minus GAA (Billion Pesos)"]
-    colors = {"GAA minus NEP (Billion Pesos)": ORANGE, "Actual minus GAA (Billion Pesos)": GRAY}
-    labels = {"GAA minus NEP (Billion Pesos)": "GAA minus NEP", "Actual minus GAA (Billion Pesos)": "Actual minus GAA"}
-    for col in variance_cols:
-        fig.add_trace(
-            go.Bar(
-                x=w["Fiscal Year"],
-                y=w[col],
-                name=labels[col],
-                marker=dict(color=colors[col], line=dict(color="white", width=1)),
-                text=[signed_peso_billion(v) for v in w[col]],
-                textposition="outside",
-                cliponaxis=False,
-                hovertemplate="<b>%{x}</b><br>" + labels[col] + ": %{text}<extra></extra>",
-            )
-        )
-    max_abs = np.nanmax(np.abs(w[variance_cols].values)) if len(w) else 1
-    if not np.isfinite(max_abs) or max_abs == 0:
-        max_abs = 1
-    fig.add_hline(y=0, line_width=1, line_dash="dash", line_color="#808080")
-    apply_report_layout(
-        fig,
-        title="<b>Budget-Cycle Variance in CCET</b>",
-        subtitle="Difference between NEP and GAA, and between GAA and Actual.",
-        height=720,
-        bottom=135,
-        source_note="Formula: GAA variance = GAA - NEP; Actual variance = Actual - GAA. Positive values indicate increases across budget stages.",
-    )
-    fig.update_layout(barmode="group")
-    fig.update_yaxes(title_text="Billion Pesos", range=[-max_abs * 1.45, max_abs * 1.45])
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
-
-
-def build_actual_vs_gaa_chart(data):
-    w = budget_stage_wide(data)
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=w["Fiscal Year"],
-            y=w["Actual vs GAA (%)"],
-            name="Actual vs GAA",
-            marker=dict(color=DEEP_BLUE, line=dict(color="white", width=1)),
-            text=[percent_label(v, 2) for v in w["Actual vs GAA (%)"]],
-            textposition="outside",
-            cliponaxis=False,
-            hovertemplate="<b>%{x}</b><br>Actual vs GAA: %{text}<extra></extra>",
-        )
-    )
-    max_pct = np.nanmax(np.abs(w["Actual vs GAA (%)"].values)) if len(w) else 1
-    if not np.isfinite(max_pct) or max_pct == 0:
-        max_pct = 1
-    fig.add_hline(y=0, line_width=1, line_dash="dash", line_color="#808080")
-    apply_report_layout(
-        fig,
-        title="<b>Actual Compared with GAA</b>",
-        subtitle="Percentage difference between Actual and approved GAA CCET amounts.",
-        height=680,
-        bottom=135,
-        source_note="Formula: (Actual - GAA) ÷ GAA × 100. Missing Actual data are treated as unavailable, not zero.",
-        showlegend=False,
-    )
-    fig.update_yaxes(title_text="Percent Difference", ticksuffix="%", range=[-max_pct * 1.25, max_pct * 1.25])
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
-
-
-def build_adaptation_mitigation_share_chart(data):
-    d = data.copy()
-    annual = d.groupby("Fiscal_Year", as_index=False)[["ADAPTATION", "MITIGATION"]].sum()
-    annual["Total Pillar Amount"] = annual["ADAPTATION"] + annual["MITIGATION"]
-    annual["Adaptation Share"] = annual["ADAPTATION"] / annual["Total Pillar Amount"] * 100
-    annual["Mitigation Share"] = annual["MITIGATION"] / annual["Total Pillar Amount"] * 100
-    annual = annual.replace([np.inf, -np.inf], np.nan).fillna(0)
-    annual["Fiscal Year"] = "FY" + annual["Fiscal_Year"].astype(str)
-
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=annual["Fiscal Year"],
-            y=annual["Adaptation Share"],
-            name="Adaptation",
-            marker=dict(color=DEEP_BLUE, line=dict(color="white", width=1)),
-            text=[percent_label(v, 1) for v in annual["Adaptation Share"]],
-            textposition="inside",
-            insidetextanchor="middle",
-            hovertemplate="<b>%{x}</b><br>Adaptation: %{y:.2f}%<extra></extra>",
-        )
-    )
-    fig.add_trace(
-        go.Bar(
-            x=annual["Fiscal Year"],
-            y=annual["Mitigation Share"],
-            name="Mitigation",
-            marker=dict(color=GREEN, line=dict(color="white", width=1)),
-            text=[percent_label(v, 1) if v >= 3 else "" for v in annual["Mitigation Share"]],
-            textposition="inside",
-            insidetextanchor="middle",
-            hovertemplate="<b>%{x}</b><br>Mitigation: %{y:.2f}%<extra></extra>",
-        )
-    )
-    apply_report_layout(
-        fig,
-        title="<b>Adaptation and Mitigation Share</b>",
-        subtitle="Distribution of climate-tagged budget by climate pillar.",
-        height=700,
-        bottom=130,
-        source_note="Formula: pillar amount ÷ total adaptation-plus-mitigation amount × 100. Values respond to sidebar filters.",
-    )
-    fig.update_layout(barmode="stack")
-    fig.update_yaxes(title_text="Share of Climate-Tagged Budget (%)", range=[0, 100], ticksuffix="%")
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
-
-
-def build_participation_chart(data):
-    d = data.drop_duplicates(["Fiscal_Year", "GRIT TAGGING", "Agency Display"])
-    d = d.groupby(["Fiscal_Year", "GRIT TAGGING"], as_index=False)["Agency Display"].nunique()
-    d = d.rename(columns={"Agency Display": "Participating NGIs"})
-    d["Fiscal Year"] = "FY" + d["Fiscal_Year"].astype(str)
+def fig_participation_by_year(df):
+    d = df.groupby(["Fiscal_Year", "GRIT TAGGING"], as_index=False)["Agency Unit"].nunique()
+    d = d.rename(columns={"Agency Unit": "Participating NGIs"})
     fig = px.bar(
-        d.sort_values("Fiscal_Year"),
-        x="Fiscal Year",
+        d,
+        x="Fiscal_Year",
         y="Participating NGIs",
         color="GRIT TAGGING",
+        color_discrete_map=INSTITUTION_COLORS,
         barmode="stack",
-        color_discrete_sequence=CHART_COLOR_SEQUENCE,
-        text="Participating NGIs",
+        hover_data={"Fiscal_Year": True, "GRIT TAGGING": True, "Participating NGIs": ":,.0f"},
     )
-    fig.update_traces(textposition="inside")
-    apply_report_layout(
-        fig,
-        title="<b>CCET Participation by Institution Type</b>",
-        subtitle="Unique participating institutions by fiscal year and GRIT TAGGING.",
-        height=700,
-        bottom=130,
-        source_note="Method: Count unique department-agency labels per fiscal year and institution type.",
-    )
-    fig.update_yaxes(title_text="Number of Participating Institutions")
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
+    fig.update_xaxes(title_text="Fiscal year", type="category")
+    fig.update_yaxes(title_text="Unique participating institutions")
+    return polish_fig(fig, height=600, legend="bottom", bottom=115)
 
 
-def build_institution_type_budget_chart(data):
-    d = safe_group_sum(data, ["Fiscal_Year", "GRIT TAGGING"], "TOTAL")
-    d["Amount (Billion Pesos)"] = d["TOTAL"] / 1_000_000
-    d["Fiscal Year"] = "FY" + d["Fiscal_Year"].astype(str)
-    fig = px.area(
-        d.sort_values("Fiscal_Year"),
-        x="Fiscal Year",
-        y="Amount (Billion Pesos)",
+def fig_budget_by_institution(df):
+    d = df.groupby(["Fiscal_Year", "GRIT TAGGING"], as_index=False)["TOTAL"].sum()
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    fig = px.bar(
+        d,
+        x="Fiscal_Year",
+        y="Amount_B",
         color="GRIT TAGGING",
-        color_discrete_sequence=CHART_COLOR_SEQUENCE,
-        line_group="GRIT TAGGING",
-    )
-    apply_report_layout(
-        fig,
-        title="<b>Climate-Tagged Budget by Institution Type</b>",
-        subtitle="Budget composition across NGAs, SUCs, and GOCCs.",
-        height=680,
-        bottom=130,
-        source_note="Method: Sum of TOTAL by fiscal year and GRIT TAGGING. Values are expressed in billion pesos.",
-    )
-    fig.update_yaxes(title_text="Amount (Billion Pesos)")
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
-
-
-def build_ranking_chart(data, group_col, title, subtitle, top_n=15, source_note=None):
-    d = safe_group_sum(data, [group_col], "TOTAL", top_n=top_n)
-    d["Amount (Billion Pesos)"] = d["TOTAL"] / 1_000_000
-    d["Amount Label"] = d["Amount (Billion Pesos)"].apply(peso_billion)
-    d["Wrapped Label"] = d[group_col].apply(lambda x: wrap_label(x, 58))
-    d = d.sort_values("Amount (Billion Pesos)", ascending=True)
-    fig = px.bar(
-        d,
-        x="Amount (Billion Pesos)",
-        y="Wrapped Label",
-        orientation="h",
-        text="Amount Label",
-        color_discrete_sequence=[DEEP_BLUE],
-    )
-    fig.update_traces(textposition="outside", cliponaxis=False, marker_line_color="white", marker_line_width=1.2)
-    apply_report_layout(
-        fig,
-        title=title,
-        subtitle=subtitle,
-        height=max(560, 42 * len(d) + 220),
-        left=360,
-        right=140,
-        bottom=130,
-        source_note=source_note or "Method: Sum of TOTAL by selected category. Values are expressed in billion pesos.",
-        showlegend=False,
-    )
-    fig.update_xaxes(title_text="Amount (Billion Pesos)")
-    fig.update_yaxes(title_text="")
-    return fig
-
-
-def build_top_ngi_pareto(data, top_n=20):
-    d = safe_group_sum(data, ["Agency Display"], "TOTAL", top_n=top_n)
-    if d.empty:
-        return go.Figure()
-    d["Amount (Billion Pesos)"] = d["TOTAL"] / 1_000_000
-    d["Share (%)"] = d["TOTAL"] / data["TOTAL"].sum() * 100 if data["TOTAL"].sum() else 0
-    d["Cumulative Share (%)"] = d["Share (%)"].cumsum()
-    d["Wrapped Label"] = d["Agency Display"].apply(lambda x: wrap_label(x, 34))
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    fig.add_trace(
-        go.Bar(
-            x=d["Wrapped Label"],
-            y=d["Amount (Billion Pesos)"],
-            name="Amount",
-            marker=dict(color=DEEP_BLUE, line=dict(color="white", width=1)),
-            text=[peso_billion(v) for v in d["Amount (Billion Pesos)"]],
-            textposition="outside",
-            cliponaxis=False,
-            hovertemplate="<b>%{x}</b><br>Amount: %{text}<extra></extra>",
-        ),
-        secondary_y=False,
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=d["Wrapped Label"],
-            y=d["Cumulative Share (%)"],
-            name="Cumulative Share",
-            mode="lines+markers",
-            line=dict(color=ORANGE, width=3),
-            marker=dict(size=7),
-            hovertemplate="<b>%{x}</b><br>Cumulative share: %{y:.2f}%<extra></extra>",
-        ),
-        secondary_y=True,
-    )
-    apply_report_layout(
-        fig,
-        title="<b>Top NGI Concentration / Pareto View</b>",
-        subtitle=f"Top {top_n} institutions and their cumulative share of the filtered climate budget.",
-        height=760,
-        left=95,
-        right=95,
-        bottom=245,
-        source_note="Method: Rank institutions by total amount, then compute cumulative share of the filtered total.",
-    )
-    fig.update_xaxes(title_text="Institution", tickangle=-35)
-    fig.update_yaxes(title_text="Amount (Billion Pesos)", secondary_y=False)
-    fig.update_yaxes(title_text="Cumulative Share (%)", ticksuffix="%", range=[0, min(105, max(100, d["Cumulative Share (%)"].max() * 1.05))], secondary_y=True, showgrid=False)
-    return fig
-
-
-def build_nccap_heatmap(data):
-    d = safe_group_sum(data, ["NCCAP Thematic Priority", "Fiscal_Year"], "TOTAL")
-    d["Amount (Billion Pesos)"] = d["TOTAL"] / 1_000_000
-    matrix = d.pivot_table(index="NCCAP Thematic Priority", columns="Fiscal_Year", values="Amount (Billion Pesos)", aggfunc="sum").fillna(0)
-    ordered_index = [p for p in NCCAP_ORDER if p in matrix.index] + [p for p in matrix.index if p not in NCCAP_ORDER]
-    matrix = matrix.loc[ordered_index]
-    years = list(matrix.columns)
-
-    share_matrix = matrix.copy()
-    for year in years:
-        total = share_matrix[year].sum()
-        share_matrix[year] = share_matrix[year] / total * 100 if total else 0
-
-    customdata = np.stack([matrix.values, share_matrix.values], axis=-1)
-
-    fig = go.Figure(
-        go.Heatmap(
-            z=matrix.values,
-            x=["FY" + str(y) for y in years],
-            y=matrix.index,
-            customdata=customdata,
-            colorscale=[
-                [0.00, "#F7FBFF"],
-                [0.20, "#CFE1F2"],
-                [0.40, "#8FBBD9"],
-                [0.60, "#4F8FC2"],
-                [0.80, "#1F5F99"],
-                [1.00, PRIMARY_BLUE],
-            ],
-            colorbar=dict(title="Billion pesos", len=0.78),
-            xgap=3,
-            ygap=3,
-            hovertemplate="<b>%{y}</b><br>%{x}<br>Allocation: ₱%{customdata[0]:,.2f}B<br>Share: %{customdata[1]:.2f}%<extra></extra>",
-        )
-    )
-
-    max_val = np.nanmax(matrix.values) if matrix.size else 0
-    threshold = max_val * 0.45
-    for i, priority in enumerate(matrix.index):
-        for j, year_label in enumerate(["FY" + str(y) for y in years]):
-            amount = matrix.iloc[i, j]
-            share = share_matrix.iloc[i, j]
-            label = f"{peso_billion(amount)}<br>({share:.1f}%)" if amount > 0 else "—"
-            font_color = "white" if amount >= threshold and amount > 0 else DARK_TEXT
-            fig.add_annotation(
-                x=year_label,
-                y=priority,
-                text=label,
-                showarrow=False,
-                align="center",
-                font=dict(size=10.5, color=font_color),
-            )
-
-    fig.update_layout(
-        title=dict(
-            text="<b>NCCAP Thematic Priority Allocation Matrix</b><br><span style='font-size:14px;color:#4F4F4F'>Amount and fiscal-year share per thematic priority.</span>",
-            x=0.5,
-            xanchor="center",
-            y=0.98,
-            yanchor="top",
-            font=dict(size=20, color=PRIMARY_BLUE),
-        ),
-        template="plotly_white",
-        height=max(760, 72 * len(matrix.index) + 220),
-        margin=dict(l=390, r=110, t=155, b=135),
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        font=dict(family="Arial", size=12),
-    )
-    fig.update_xaxes(title_text="Fiscal Year", side="top")
-    fig.update_yaxes(title_text="NCCAP Thematic Priority", autorange="reversed")
-    fig.add_annotation(
-        text="Formula: Priority share = priority allocation ÷ total fiscal-year allocation × 100. Values respond to sidebar filters.",
-        xref="paper",
-        yref="paper",
-        x=0,
-        y=-0.15,
-        showarrow=False,
-        align="left",
-        font=dict(size=10.5, color="#555555"),
-    )
-    return fig
-
-
-def build_nccap_stacked(data):
-    d = safe_group_sum(data, ["Fiscal_Year", "NCCAP Thematic Priority"], "TOTAL")
-    d["Amount (Billion Pesos)"] = d["TOTAL"] / 1_000_000
-    d["Fiscal Year"] = "FY" + d["Fiscal_Year"].astype(str)
-    order = [p for p in NCCAP_ORDER if p in d["NCCAP Thematic Priority"].unique()]
-    fig = px.bar(
-        d.sort_values("Fiscal_Year"),
-        x="Fiscal Year",
-        y="Amount (Billion Pesos)",
-        color="NCCAP Thematic Priority",
-        category_orders={"NCCAP Thematic Priority": order},
-        color_discrete_sequence=CHART_COLOR_SEQUENCE,
-    )
-    apply_report_layout(
-        fig,
-        title="<b>NCCAP Thematic Priority Allocation Mix</b>",
-        subtitle="Stacked view of climate-tagged allocations by priority.",
-        height=820,
-        bottom=250,
-        legend_y=-0.23,
-        source_note="Method: Sum TOTAL by fiscal year and NCCAP thematic priority. Values are expressed in billion pesos.",
-    )
-    fig.update_layout(barmode="stack")
-    fig.update_yaxes(title_text="Amount (Billion Pesos)")
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
-
-
-def build_nccap_rank(data):
-    return build_ranking_chart(
-        data,
-        "NCCAP Thematic Priority",
-        "<b>NCCAP Thematic Priorities by Allocation</b>",
-        "Ranking based on the currently filtered dataset.",
-        top_n=20,
-        source_note="Method: Sum TOTAL by NCCAP thematic priority. Values are expressed in billion pesos.",
-    )
-
-
-def build_pdp_alignment_chart(data):
-    d = safe_group_sum(data, ["PDP / Executive Agenda Alignment"], "TOTAL")
-    d["Amount (Billion Pesos)"] = d["TOTAL"] / 1_000_000
-    d["Share (%)"] = d["TOTAL"] / d["TOTAL"].sum() * 100 if d["TOTAL"].sum() else 0
-    fig = px.bar(
-        d.sort_values("Amount (Billion Pesos)"),
-        x="Amount (Billion Pesos)",
-        y="PDP / Executive Agenda Alignment",
-        orientation="h",
-        text=d["Share (%)"].map(lambda x: f"{x:.1f}%"),
-        color="PDP / Executive Agenda Alignment",
-        color_discrete_sequence=CHART_COLOR_SEQUENCE,
-    )
-    fig.update_traces(textposition="outside", cliponaxis=False, marker_line_color="white", marker_line_width=1.2)
-    apply_report_layout(
-        fig,
-        title="<b>PDP / Executive Agenda Alignment Proxy</b>",
-        subtitle="Keyword-based exploratory alignment, not official validation.",
-        height=560,
-        left=210,
-        right=140,
-        bottom=130,
-        source_note="Method: Count climate/development keyword hits in PAP and typology text; classify as strong, partial, or weak/unclassified.",
-        showlegend=False,
-    )
-    fig.update_xaxes(title_text="Amount (Billion Pesos)")
-    fig.update_yaxes(title_text="")
-    return fig
-
-
-def build_pdp_alignment_trend(data):
-    d = safe_group_sum(data, ["Fiscal_Year", "PDP / Executive Agenda Alignment"], "TOTAL")
-    d["Amount (Billion Pesos)"] = d["TOTAL"] / 1_000_000
-    d["Fiscal Year"] = "FY" + d["Fiscal_Year"].astype(str)
-    fig = px.bar(
-        d.sort_values("Fiscal_Year"),
-        x="Fiscal Year",
-        y="Amount (Billion Pesos)",
-        color="PDP / Executive Agenda Alignment",
+        color_discrete_map=INSTITUTION_COLORS,
         barmode="stack",
-        color_discrete_sequence=CHART_COLOR_SEQUENCE,
+        hover_data={"Amount_B": ":,.2f", "TOTAL": False},
     )
-    apply_report_layout(
-        fig,
-        title="<b>Estimated National Plan Alignment Trend</b>",
-        subtitle="Budget movement by keyword-based alignment category.",
-        height=650,
-        bottom=160,
-        source_note="Method: Sum TOTAL by fiscal year and keyword-based alignment category.",
-    )
-    fig.update_yaxes(title_text="Amount (Billion Pesos)")
-    fig.update_xaxes(title_text="Fiscal Year")
-    return fig
+    fig.update_xaxes(title_text="Fiscal year", type="category")
+    fig.update_yaxes(title_text="Climate-tagged amount (billion pesos)")
+    return polish_fig(fig, height=600, legend="bottom", bottom=115)
 
 
-def build_fgd_priority_chart():
-    d = FGD_KII_INSIGHTS.groupby(["Priority", "Budget Cycle Stage"], as_index=False).size()
-    d = d.rename(columns={"size": "Number of Issues"})
-    order = ["High", "Medium", "Low"]
+def fig_budget_stage_comparison(pivot):
+    d = pivot.copy()
+    d["FY"] = "FY" + d["Fiscal_Year"].astype(str)
+    fig = go.Figure()
+    stage_colors = {"NEP": DEEP_BLUE, "GAA": MID_BLUE, "Actual": GREEN}
+    for stage in ["NEP", "GAA", "Actual"]:
+        fig.add_trace(go.Bar(
+            x=d["FY"], y=d[stage], name=stage,
+            marker=dict(color=stage_colors[stage], line=dict(color="white", width=1)),
+            hovertemplate=f"<b>%{{x}}</b><br>{stage}: ₱%{{y:,.2f}}B<extra></extra>",
+        ))
+    fig.update_layout(barmode="group")
+    fig.update_xaxes(title_text="Fiscal year")
+    fig.update_yaxes(title_text="Amount (billion pesos)", rangemode="tozero")
+    return polish_fig(fig, height=620, legend="bottom", bottom=115)
+
+
+def fig_budget_variance(pivot):
+    d = pivot.copy()
+    d["FY"] = "FY" + d["Fiscal_Year"].astype(str)
+    fig = go.Figure()
+    for col, color in [("GAA minus NEP", ORANGE), ("Actual minus GAA", GRAY)]:
+        fig.add_trace(go.Bar(
+            x=d["FY"], y=d[col], name=col,
+            marker=dict(color=color, line=dict(color="white", width=1)),
+            hovertemplate=f"<b>%{{x}}</b><br>{col}: ₱%{{y:,.2f}}B<extra></extra>",
+        ))
+    fig.add_hline(y=0, line_width=1, line_dash="dash", line_color="#808080")
+    fig.update_layout(barmode="group")
+    fig.update_xaxes(title_text="Fiscal year")
+    fig.update_yaxes(title_text="Variance (billion pesos)", zeroline=True)
+    return polish_fig(fig, height=620, legend="bottom", bottom=115)
+
+
+def fig_actual_vs_gaa(pivot):
+    d = pivot.copy()
+    d["FY"] = "FY" + d["Fiscal_Year"].astype(str)
+    fig = go.Figure(go.Bar(
+        x=d["FY"], y=d["Actual vs GAA (%)"], name="Actual vs GAA",
+        marker=dict(color=DEEP_BLUE, line=dict(color="white", width=1)),
+        hovertemplate="<b>%{x}</b><br>Actual vs GAA: %{y:.2f}%<extra></extra>",
+    ))
+    fig.add_hline(y=0, line_width=1, line_dash="dash", line_color="#808080")
+    fig.update_xaxes(title_text="Fiscal year")
+    fig.update_yaxes(title_text="Percent difference", ticksuffix="%")
+    return polish_fig(fig, height=560, legend="none", bottom=70)
+
+
+def fig_adaptation_mitigation_share(df):
+    d = df.groupby("Fiscal_Year", as_index=False)[["ADAPTATION", "MITIGATION", "TOTAL"]].sum().sort_values("Fiscal_Year")
+    d["Adaptation Share"] = np.where(d["TOTAL"] != 0, d["ADAPTATION"] / d["TOTAL"] * 100, np.nan)
+    d["Mitigation Share"] = np.where(d["TOTAL"] != 0, d["MITIGATION"] / d["TOTAL"] * 100, np.nan)
+    plot = d.melt(id_vars="Fiscal_Year", value_vars=["Adaptation Share", "Mitigation Share"], var_name="Pillar", value_name="Share")
+    plot["Pillar"] = plot["Pillar"].str.replace(" Share", "", regex=False)
+    fig = px.bar(
+        plot,
+        x="Fiscal_Year", y="Share", color="Pillar",
+        color_discrete_map={"Adaptation": DEEP_BLUE, "Mitigation": GREEN},
+        barmode="stack",
+        hover_data={"Share": ":.2f"},
+    )
+    fig.update_xaxes(title_text="Fiscal year", type="category")
+    fig.update_yaxes(title_text="Share of climate-tagged budget", ticksuffix="%", range=[0, 100])
+    return polish_fig(fig, height=590, legend="bottom", bottom=115)
+
+
+def fig_top_agencies(df, group_col="Agency Label", top_n=15, title_col=None):
+    d = df.groupby([group_col], as_index=False)["TOTAL"].sum().sort_values("TOTAL", ascending=False).head(top_n)
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    d = d.sort_values("Amount_B", ascending=True)
     fig = px.bar(
         d,
-        x="Priority",
-        y="Number of Issues",
-        color="Budget Cycle Stage",
-        category_orders={"Priority": order},
-        text="Number of Issues",
-        color_discrete_sequence=CHART_COLOR_SEQUENCE,
-    )
-    fig.update_traces(textposition="outside", cliponaxis=False, marker_line_color="white", marker_line_width=1.2)
-    apply_report_layout(
-        fig,
-        title="<b>FGD/KII Challenges by Priority and Budget-Cycle Stage</b>",
-        subtitle="Structured coding of implementation issues for dashboard design.",
-        height=620,
-        bottom=135,
-        source_note="Method: Qualitative findings are coded by theme, budget-cycle stage, institution type, and priority level.",
-    )
-    fig.update_yaxes(title_text="Number of Coded Issues", dtick=1)
-    fig.update_xaxes(title_text="Priority")
-    return fig
-
-
-def build_recommendation_chart():
-    d = RECOMMENDATION_SCORECARD.groupby(["Priority"], as_index=False).size()
-    d = d.rename(columns={"size": "Number of Reform Areas"})
-    fig = px.bar(
-        d,
-        x="Priority",
-        y="Number of Reform Areas",
-        color="Priority",
-        text="Number of Reform Areas",
-        category_orders={"Priority": ["High", "Medium", "Low"]},
-        color_discrete_map={"High": ORANGE, "Medium": MID_BLUE, "Low": GREEN},
-    )
-    fig.update_traces(textposition="outside", cliponaxis=False, marker_line_color="white", marker_line_width=1.2)
-    apply_report_layout(
-        fig,
-        title="<b>Recommendation Priority Tracker</b>",
-        subtitle="Reform areas translated into dashboard monitoring actions.",
-        height=540,
-        bottom=115,
-        source_note="Method: Challenge-to-recommendation mapping from FGD/KII synthesis and report recommendations.",
-        showlegend=False,
-    )
-    fig.update_yaxes(title_text="Number of Reform Areas", dtick=1)
-    fig.update_xaxes(title_text="Priority")
-    return fig
-
-
-def build_quality_chart(data):
-    q = data_quality_summary(data).sort_values("Flagged Records", ascending=True)
-    fig = px.bar(
-        q,
-        x="Flagged Records",
-        y="Check",
+        x="Amount_B",
+        y=group_col,
         orientation="h",
-        text="Flagged Records",
-        color="Share of Filtered Records (%)",
-        color_continuous_scale="Blues",
+        color_discrete_sequence=[DEEP_BLUE],
+        hover_data={"Amount_B": ":,.2f", "TOTAL": False},
     )
-    fig.update_traces(textposition="outside", cliponaxis=False, marker_line_color="white", marker_line_width=1.2)
-    apply_report_layout(
-        fig,
-        title="<b>Data Quality Flags</b>",
-        subtitle="Records that may need validation before policy interpretation.",
-        height=max(650, 38 * len(q) + 220),
-        left=280,
-        right=150,
-        bottom=135,
-        source_note="Method: Rule-based validation flags missing fields, zero totals, inconsistent amounts, duplicates, and unclassified priorities.",
-        showlegend=False,
+    fig.update_xaxes(title_text="Amount (billion pesos)")
+    fig.update_yaxes(title_text="", tickfont=dict(size=10))
+    return polish_fig(fig, height=max(520, 33 * len(d) + 180), legend="none", left=340, right=45, bottom=70)
+
+
+def fig_agency_pareto(df, top_n=20):
+    d = df.groupby("Agency Label", as_index=False)["TOTAL"].sum().sort_values("TOTAL", ascending=False).head(top_n)
+    total = df["TOTAL"].sum()
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    d["Share"] = d["TOTAL"] / total * 100 if total else np.nan
+    d["Cumulative Share"] = d["TOTAL"].cumsum() / total * 100 if total else np.nan
+    d = d.sort_values("Amount_B", ascending=True)
+    fig = px.bar(
+        d,
+        x="Amount_B", y="Agency Label", orientation="h",
+        color="Cumulative Share", color_continuous_scale="Blues",
+        hover_data={"Amount_B": ":,.2f", "Share": ":.2f", "Cumulative Share": ":.2f", "TOTAL": False},
     )
-    fig.update_xaxes(title_text="Flagged Records")
+    fig.update_coloraxes(colorbar_title="Cumulative share")
+    fig.update_xaxes(title_text="Amount (billion pesos)")
+    fig.update_yaxes(title_text="", tickfont=dict(size=10))
+    return polish_fig(fig, height=max(600, 32 * len(d) + 170), legend="none", left=360, right=90, bottom=70)
+
+
+def fig_nccap_heatmap(df):
+    d = df.groupby(["NCCAP Priority", "Fiscal_Year"], as_index=False)["TOTAL"].sum()
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    pivot = d.pivot(index="NCCAP Priority", columns="Fiscal_Year", values="Amount_B").fillna(0)
+    ordered_index = [p for p in NCCAP_ORDER if p in pivot.index]
+    pivot = pivot.loc[ordered_index]
+    if pivot.empty:
+        fig = go.Figure()
+        return polish_fig(fig, height=450)
+
+    col_totals = pivot.sum(axis=0).replace(0, np.nan)
+    share = pivot.div(col_totals, axis=1) * 100
+
+    custom = np.dstack([pivot.values, share.fillna(0).values])
+    fig = go.Figure(go.Heatmap(
+        z=pivot.values,
+        x=[f"FY{int(c)}" for c in pivot.columns],
+        y=pivot.index,
+        customdata=custom,
+        colorscale=[[0, "#F7FBFF"], [0.2, "#D7E8F5"], [0.45, "#8CB9D9"], [0.7, "#3D7FAE"], [1, PRIMARY_BLUE]],
+        colorbar=dict(title="₱B", len=0.75),
+        xgap=3,
+        ygap=3,
+        hovertemplate="<b>%{y}</b><br>%{x}<br>Amount: ₱%{customdata[0]:,.2f}B<br>Share: %{customdata[1]:.2f}%<extra></extra>",
+    ))
+
+    # Keep annotations readable: labels are short and inside heatmap cells only.
+    max_val = np.nanmax(pivot.values) if pivot.size else 0
+    for i, priority in enumerate(pivot.index):
+        for j, year in enumerate(pivot.columns):
+            amount = pivot.loc[priority, year]
+            pct_share = share.loc[priority, year]
+            if amount == 0:
+                label = ""
+            elif amount >= 1000:
+                label = f"₱{amount/1000:.2f}T<br>{pct_share:.1f}%"
+            else:
+                label = f"₱{amount:.1f}B<br>{pct_share:.1f}%"
+            font_color = "white" if amount >= max_val * 0.50 and max_val > 0 else DARK_TEXT
+            fig.add_annotation(x=f"FY{int(year)}", y=priority, text=label, showarrow=False, font=dict(size=10, color=font_color))
+
+    fig.update_xaxes(title_text="Fiscal year", side="top")
+    fig.update_yaxes(title_text="", autorange="reversed", tickfont=dict(size=10))
+    return polish_fig(fig, height=max(600, 55 * len(pivot.index) + 150), legend="none", left=300, right=80, top=35, bottom=65)
+
+
+def fig_nccap_rank(df, top_n=None):
+    d = df.groupby("NCCAP Priority", as_index=False)["TOTAL"].sum().sort_values("TOTAL", ascending=False)
+    if top_n:
+        d = d.head(top_n)
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    d = d.sort_values("Amount_B", ascending=True)
+    fig = px.bar(
+        d,
+        x="Amount_B", y="NCCAP Priority", orientation="h",
+        color="NCCAP Priority", color_discrete_map=PRIORITY_COLORS,
+        hover_data={"Amount_B": ":,.2f", "TOTAL": False},
+    )
+    fig.update_xaxes(title_text="Amount (billion pesos)")
     fig.update_yaxes(title_text="")
-    return fig
+    return polish_fig(fig, height=max(520, 42 * len(d) + 160), legend="none", left=300, bottom=70)
 
 
-# ============================================================
-# REPORT EXPORT
-# ============================================================
+def fig_pdp_alignment(df):
+    d = df.groupby("PDP / Executive Agenda Alignment", as_index=False)["TOTAL"].sum().sort_values("TOTAL", ascending=False)
+    total = d["TOTAL"].sum()
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    d["Share"] = np.where(total != 0, d["TOTAL"] / total * 100, np.nan)
+    fig = px.bar(
+        d.sort_values("Amount_B", ascending=True),
+        x="Amount_B", y="PDP / Executive Agenda Alignment", orientation="h",
+        color="PDP / Executive Agenda Alignment",
+        color_discrete_map={"Strongly Aligned": GREEN, "Partially Aligned": MID_BLUE, "Weak / Unclassified": GRAY},
+        hover_data={"Amount_B": ":,.2f", "Share": ":.2f", "TOTAL": False},
+    )
+    fig.update_xaxes(title_text="Amount (billion pesos)")
+    fig.update_yaxes(title_text="")
+    return polish_fig(fig, height=440, legend="none", left=230, bottom=70)
+
+
+def fig_pdp_alignment_trend(df):
+    d = df.groupby(["Fiscal_Year", "PDP / Executive Agenda Alignment"], as_index=False)["TOTAL"].sum()
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    fig = px.bar(
+        d,
+        x="Fiscal_Year", y="Amount_B", color="PDP / Executive Agenda Alignment",
+        color_discrete_map={"Strongly Aligned": GREEN, "Partially Aligned": MID_BLUE, "Weak / Unclassified": GRAY},
+        barmode="stack",
+        hover_data={"Amount_B": ":,.2f", "TOTAL": False},
+    )
+    fig.update_xaxes(title_text="Fiscal year", type="category")
+    fig.update_yaxes(title_text="Amount (billion pesos)")
+    return polish_fig(fig, height=560, legend="bottom", bottom=115)
+
+
+def fig_quality_flags(qc):
+    d = qc.sort_values("Flagged Records", ascending=True)
+    fig = px.bar(
+        d,
+        x="Flagged Records", y="Data Quality Check", orientation="h",
+        color="Flagged Records", color_continuous_scale="Oranges",
+        hover_data={"Flagged Records": ":,.0f"},
+    )
+    fig.update_coloraxes(colorbar_title="Records")
+    fig.update_xaxes(title_text="Flagged records")
+    fig.update_yaxes(title_text="", tickfont=dict(size=10))
+    return polish_fig(fig, height=max(560, 35 * len(d) + 160), legend="none", left=310, right=90, bottom=70)
+
+
+def fig_challenge_priorities():
+    d = FGD_KII_INSIGHTS.groupby(["Priority", "Budget Cycle Stage"], as_index=False).size()
+    priority_order = ["High", "Medium", "Low"]
+    fig = px.bar(
+        d,
+        x="Priority", y="size", color="Budget Cycle Stage",
+        category_orders={"Priority": priority_order},
+        labels={"size": "Number of coded issues"},
+        hover_data={"size": ":,.0f"},
+    )
+    fig.update_xaxes(title_text="Priority level")
+    fig.update_yaxes(title_text="Number of coded issues", dtick=1)
+    return polish_fig(fig, height=500, legend="bottom", bottom=115)
+
+
+def fig_budget_cycle_map():
+    d = pd.DataFrame({
+        "Stage": ["Preparation", "Legislation", "Execution", "Accountability"],
+        "Score": [4, 3, 3, 4],
+        "Focus": ["Tagging & QAR", "NEP→GAA", "Actuals", "Validation & audit"],
+    })
+    fig = px.bar(
+        d,
+        x="Stage", y="Score", color="Stage",
+        color_discrete_sequence=[DEEP_BLUE, MID_BLUE, ORANGE, GREEN],
+        hover_data={"Focus": True, "Score": False},
+    )
+    fig.update_xaxes(title_text="Budget cycle stage")
+    fig.update_yaxes(title_text="Dashboard emphasis", showticklabels=False, range=[0, 5])
+    return polish_fig(fig, height=450, legend="none", bottom=70)
+
+
+def fig_budget_trend(df):
+    d = df.groupby("Fiscal_Year", as_index=False)["TOTAL"].sum().sort_values("Fiscal_Year")
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    fig = px.area(
+        d,
+        x="Fiscal_Year", y="Amount_B",
+        markers=True,
+        color_discrete_sequence=[DEEP_BLUE],
+        hover_data={"Amount_B": ":,.2f", "TOTAL": False},
+    )
+    fig.update_traces(line=dict(width=3), marker=dict(size=7))
+    fig.update_xaxes(title_text="Fiscal year", type="category")
+    fig.update_yaxes(title_text="Amount (billion pesos)", rangemode="tozero")
+    return polish_fig(fig, height=560, legend="none", bottom=70)
+
+
+def fig_yoy_growth(df):
+    d = df.groupby("Fiscal_Year", as_index=False)["TOTAL"].sum().sort_values("Fiscal_Year")
+    d["Amount_B"] = d["TOTAL"].apply(raw_to_billion)
+    d["YoY Growth (%)"] = d["Amount_B"].pct_change() * 100
+    fig = px.bar(
+        d,
+        x="Fiscal_Year", y="YoY Growth (%)",
+        color="YoY Growth (%)", color_continuous_scale="Blues",
+        hover_data={"YoY Growth (%)": ":.2f"},
+    )
+    fig.add_hline(y=0, line_width=1, line_dash="dash", line_color="#808080")
+    fig.update_xaxes(title_text="Fiscal year", type="category")
+    fig.update_yaxes(title_text="Year-on-year growth", ticksuffix="%")
+    return polish_fig(fig, height=520, legend="none", right=90, bottom=70)
+
+
+
+
 
 def generate_pdf_report(f, filters_used):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     story = []
 
     total_budget = f["TOTAL"].sum()
     adaptation_total = f["ADAPTATION"].sum()
     mitigation_total = f["MITIGATION"].sum()
-    adaptation_share = pct(adaptation_total, total_budget)
-    mitigation_share = pct(mitigation_total, total_budget)
-    top_agency, top_agency_amount = safe_top_value(f, "Agency Display")
-    top_priority, top_priority_amount = safe_top_value(f, "NCCAP Thematic Priority")
+    adaptation_share = safe_divide(adaptation_total, total_budget) * 100 if total_budget else 0
+    mitigation_share = safe_divide(mitigation_total, total_budget) * 100 if total_budget else 0
+    top_agency, top_agency_amount, top_agency_share = safe_top(f, "Agency Label")
+    top_priority, top_priority_amount, top_priority_share = safe_top(f, "NCCAP Priority")
 
-    story.append(Paragraph("National CCET Smart Policy Analytics Report", styles["Title"]))
-    story.append(Spacer(1, 10))
+    story.append(Paragraph("National CCET Smart Analytics Report", styles["Title"]))
+    story.append(Spacer(1, 12))
     story.append(Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y %I:%M %p')}", styles["Normal"]))
     story.append(Spacer(1, 12))
 
     story.append(Paragraph("Filters Applied", styles["Heading2"]))
     filter_table = [["Filter", "Selected Value"]] + [[k, str(v)] for k, v in filters_used.items()]
-    table = Table(filter_table, colWidths=[170, 330])
+    table = Table(filter_table, colWidths=[170, 310])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(table)
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 16))
 
     story.append(Paragraph("Executive Summary", styles["Heading2"]))
     summary = f"""
-    The filtered dataset covers {peso_from_raw(total_budget)} in climate-tagged PAPs,
-    involving {f['Agency Display'].nunique()} institutions and {f['PAP ID'].replace('', np.nan).nunique()} unique PAP IDs.
-    Adaptation accounts for {adaptation_share:.2f}% of the filtered total, while mitigation accounts for {mitigation_share:.2f}%.
-    The top institution is {top_agency} with {peso_from_raw(top_agency_amount)}.
-    The largest NCCAP thematic priority is {top_priority} with {peso_from_raw(top_priority_amount)}.
+    The filtered dataset covers {peso_from_raw(total_budget)} in climate-tagged PAPs across
+    {f['Agency Unit'].nunique()} unique institution units and {f['PAP ID'].replace('', np.nan).nunique()} PAP IDs.
+    Adaptation accounts for {adaptation_share:.2f}% while mitigation accounts for {mitigation_share:.2f}% of the filtered total.
+    The top institution is {top_agency} with {peso_from_raw(top_agency_amount)} ({top_agency_share:.2f}% of the filtered total).
+    The largest NCCAP priority is {top_priority} with {peso_from_raw(top_priority_amount)} ({top_priority_share:.2f}% of the filtered total).
     """
     story.append(Paragraph(summary, styles["Normal"]))
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 12))
 
     story.append(Paragraph("Interpretation Note", styles["Heading2"]))
     note = """
-    This dashboard supports policy analysis but does not replace official agency validation, QAR documentation,
-    audit review, or climate impact evaluation. Climate-tagged budgets indicate tagging and budget visibility,
-    not automatically actual expenditure, implementation performance, or climate outcomes.
+    The dashboard supports analysis and validation, but it does not replace official government validation.
+    Climate-tagged budgets should not be treated as direct proof of actual expenditure, implementation performance, or climate outcomes.
+    PDP alignment is a keyword-based proxy, while NCCAP priority is derived from CCET typology codes.
     """
     story.append(Paragraph(note, styles["Normal"]))
 
@@ -1399,107 +1126,132 @@ def generate_pdf_report(f, filters_used):
     return buffer
 
 
-# ============================================================
-# MAIN APP
-# ============================================================
 
-st.title("National CCET Smart Policy Analytics Platform")
-st.caption(
-    "Dynamic PAP-level analytics for National Climate Change Expenditure Tagging: budget trends, participation, "
-    "NCCAP priorities, budget-cycle traceability, FGD/KII challenges, recommendations, and data quality."
-)
+
+st.title("National CCET Smart Policy Analytics Dashboard")
+st.caption("PAP-level climate budget analytics, budget-cycle traceability, NCCAP priorities, FGD/KII insights, and data quality validation")
 
 st.sidebar.header("Dataset")
 uploaded_file = st.sidebar.file_uploader(
-    "Upload updated CCET CSV",
+    "Upload CCET CSV dataset",
     type=["csv"],
-    help="Upload the cleaned National CCET PAP-level dataset. If no file is uploaded, the dashboard uses the default data path.",
+    help="Upload the cleaned National CCET PAP dataset. If no file is uploaded, the app will look for data/ccet_data.csv or the latest cleaned CSV in the working folder.",
 )
 
 if uploaded_file is not None:
-    df = prepare_data(read_csv(uploaded_file))
+    raw_df = pd.read_csv(uploaded_file, encoding="utf-8-sig")
+    df = prepare_data(raw_df)
     dataset_source = "Uploaded CSV file"
 else:
-    df, default_path = load_default_data()
-    dataset_source = f"Default dataset: {default_path}"
+    default_path = find_default_data_path()
+    if default_path is None:
+        st.error("No default dataset found. Please upload the cleaned CCET CSV file in the sidebar.")
+        st.stop()
+    df = load_and_prepare_from_path(default_path)
+    dataset_source = default_path
+
+# Defensive sanity check for GRIT TAGGING.
+if "GRIT TAGGING" not in df.columns:
+    st.error("GRIT TAGGING column was not detected after preparation. Please check the CSV header.")
+    st.stop()
 
 st.sidebar.caption(f"Current dataset: {dataset_source}")
-st.sidebar.caption("Budget values are interpreted as thousand pesos, then converted for display.")
+st.sidebar.caption("Budget values are treated as thousand pesos and converted for display.")
+
+with st.sidebar.expander("GRIT TAGGING check", expanded=False):
+    st.write(df["GRIT TAGGING"].value_counts(dropna=False))
+
+
 
 st.sidebar.header("Filters")
-filter_dropdown("Fiscal Year", df["Fiscal_Year"].unique(), key="year_filter")
-filter_dropdown("Budget Type", df["Type"].unique(), key="type_filter")
-filter_dropdown("GRIT TAGGING / Institution Type", df["GRIT TAGGING"].unique(), key="grit_filter")
-filter_dropdown("Department", df["DEPARTMENT"].unique(), key="dept_filter")
-filter_dropdown("Climate Pillar", df["Climate Pillar"].unique(), key="pillar_filter")
-filter_dropdown("NCCAP Thematic Priority", df["NCCAP Thematic Priority"].unique(), key="nccap_filter")
-filter_dropdown("PDP / Executive Agenda Alignment", df["PDP / Executive Agenda Alignment"].unique(), key="pdp_filter")
 
-f = apply_filters(df)
+year_filter = st.sidebar.selectbox("Fiscal Year", filter_options(df["Fiscal_Year"]))
+budget_filter = st.sidebar.selectbox("Budget Type", filter_options(df["Type"]))
+grit_filter = st.sidebar.selectbox("GRIT TAGGING / Institution Type", filter_options(df["GRIT TAGGING"]))
+department_filter = st.sidebar.selectbox("Department", filter_options(df["DEPARTMENT"]))
+pillar_filter = st.sidebar.selectbox("Climate Pillar", filter_options(df["Climate Pillar"]))
+nccap_filter = st.sidebar.selectbox("NCCAP Thematic Priority", filter_options(df["NCCAP Priority"]))
+pdp_filter = st.sidebar.selectbox("PDP / Executive Agenda Alignment", filter_options(df["PDP / Executive Agenda Alignment"]))
+
+f = df.copy()
+if year_filter != "All":
+    f = f[f["Fiscal_Year"] == int(year_filter)]
+if budget_filter != "All":
+    f = f[f["Type"] == budget_filter]
+if grit_filter != "All":
+    f = f[f["GRIT TAGGING"] == grit_filter]
+if department_filter != "All":
+    f = f[f["DEPARTMENT"] == department_filter]
+if pillar_filter != "All":
+    f = f[f["Climate Pillar"] == pillar_filter]
+if nccap_filter != "All":
+    f = f[f["NCCAP Priority"] == nccap_filter]
+if pdp_filter != "All":
+    f = f[f["PDP / Executive Agenda Alignment"] == pdp_filter]
 
 filters_used = {
     "Dataset": dataset_source,
-    "Fiscal Year": st.session_state["year_filter"],
-    "Budget Type": st.session_state["type_filter"],
-    "GRIT TAGGING / Institution Type": st.session_state["grit_filter"],
-    "Department": st.session_state["dept_filter"],
-    "Climate Pillar": st.session_state["pillar_filter"],
-    "NCCAP Thematic Priority": st.session_state["nccap_filter"],
-    "PDP / Executive Agenda Alignment": st.session_state["pdp_filter"],
+    "Fiscal Year": year_filter,
+    "Budget Type": budget_filter,
+    "GRIT TAGGING / Institution Type": grit_filter,
+    "Department": department_filter,
+    "Climate Pillar": pillar_filter,
+    "NCCAP Thematic Priority": nccap_filter,
+    "PDP / Executive Agenda Alignment": pdp_filter,
 }
 
-st.sidebar.header("Downloads")
-st.sidebar.download_button(
-    "Download Filtered CSV",
-    data=f.to_csv(index=False).encode("utf-8-sig"),
-    file_name="filtered_ccet_pap_data.csv",
-    mime="text/csv",
-)
-
+st.sidebar.divider()
 if REPORTLAB_AVAILABLE:
+    pdf_buffer = generate_pdf_report(f, filters_used)
     st.sidebar.download_button(
-        "Download PDF Summary",
-        data=generate_pdf_report(f, filters_used),
-        file_name="ccet_smart_policy_analytics_summary.pdf",
+        "Download PDF summary",
+        data=pdf_buffer,
+        file_name="ccet_smart_analytics_summary.pdf",
         mime="application/pdf",
+        use_container_width=True,
     )
 else:
-    st.sidebar.caption("PDF export requires `reportlab`.")
+    st.sidebar.warning("PDF export requires `reportlab`.")
 
-# ============================================================
-# KPI RIBBON
-# ============================================================
+st.sidebar.download_button(
+    "Download filtered CSV",
+    data=f.to_csv(index=False).encode("utf-8-sig"),
+    file_name="filtered_ccet_data.csv",
+    mime="text/csv",
+    use_container_width=True,
+)
+
+
+
 
 total_budget = f["TOTAL"].sum()
 adaptation_total = f["ADAPTATION"].sum()
 mitigation_total = f["MITIGATION"].sum()
-adaptation_share = pct(adaptation_total, total_budget)
-mitigation_share = pct(mitigation_total, total_budget)
-unique_institutions = f["Agency Display"].nunique()
-unique_paps = f["PAP ID"].replace("", np.nan).nunique()
-q_score = quality_score(f)
+adaptation_share = safe_divide(adaptation_total, total_budget) * 100 if total_budget else 0
+mitigation_share = safe_divide(mitigation_total, total_budget) * 100 if total_budget else 0
 
-k1, k2, k3, k4, k5, k6 = st.columns(6)
-k1.metric("Total Climate Budget", peso_from_raw(total_budget))
-k2.metric("Adaptation Share", percent_label(adaptation_share, 1))
-k3.metric("Mitigation Share", percent_label(mitigation_share, 1))
-k4.metric("Institutions", f"{unique_institutions:,}")
-k5.metric("Unique PAP IDs", f"{unique_paps:,}")
-k6.metric("Data Quality Score", f"{q_score:.1f}/100")
+k1, k2, k3, k4, k5 = st.columns(5)
+k1.metric("Climate-tagged total", peso_from_raw(total_budget))
+k2.metric("Adaptation share", pct(adaptation_share, 1))
+k3.metric("Mitigation share", pct(mitigation_share, 1))
+k4.metric("Unique institutions", f"{f['Agency Unit'].nunique():,}")
+k5.metric("PAP IDs", f"{f['PAP ID'].replace('', np.nan).nunique():,}")
 
 if f.empty:
     st.warning("No records match the selected filters. Please adjust the sidebar filters.")
     st.stop()
 
-smart_note(
-    "<b>Interpretation rule:</b> Climate-tagged budget shows budget visibility and tagging coverage. "
-    "It should not be interpreted automatically as actual expenditure, implementation performance, or climate impact."
+st.markdown(
+    """
+    <div class="interpretation-box">
+    <b>Interpretation reminder:</b> Climate-tagged budget is evidence of tagging and budget prioritization. It should not be treated by itself as proof of actual expenditure, project completion, or climate outcome. Use the Budget Cycle, PAP Explorer, and Data Quality tabs for validation.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
-# ============================================================
-# TABS
-# ============================================================
+
 
 tabs = st.tabs([
     "Guide",
@@ -1513,6 +1265,7 @@ tabs = st.tabs([
     "FGD/KII Challenges",
     "Recommendations",
     "Policy Alignment",
+    "Budget Trends",
     "PAP Explorer",
     "Data Quality",
     "Methods & Rationale",
@@ -1525,675 +1278,601 @@ tabs = st.tabs([
     tab_key,
     tab_participation,
     tab_cycle,
-    tab_agency,
+    tab_concentration,
     tab_nccap,
     tab_fgd,
     tab_reco,
-    tab_alignment,
+    tab_policy,
+    tab_trends,
     tab_pap,
     tab_quality,
     tab_methods,
 ) = tabs
 
 
-# ============================================================
-# TAB: GUIDE
-# ============================================================
 
 with tab_guide:
     st.subheader("Dashboard Guide")
-    st.markdown("""
-    ### Purpose
+    st.markdown(
+        """
+        This dashboard is organized according to the user's analytical journey:
 
-    This dashboard is a smart policy analytics platform for the National Climate Change Expenditure Tagging system.
-    It supports examination of climate-tagged Programs, Activities, and Projects across fiscal years, budget stages,
-    institutions, climate pillars, and NCCAP thematic priorities.
+        **Data loading → filters → KPI cards → key findings → participation → budget cycle → agency concentration → NCCAP priorities → FGD/KII challenges → recommendations → policy alignment → PAP explorer → data quality.**
 
-    ### What changed in this version
+        The dashboard is intended for CCET policy review and decision support. It uses the cleaned PAP-level dataset and converts raw values from **thousand pesos** into display units.
 
-    - Added **GRIT TAGGING / Institution Type** as a dashboard-wide filter.
-    - Replaced the **NDC Sector** filter with **NCCAP Thematic Priority**.
-    - Removed repetitive chart placement and reorganized visuals into clearer analytical modules.
-    - Made core findings more dynamic using the latest PAP-level dataset.
-    - Added participation tracking, agency concentration, budget-cycle traceability, FGD/KII challenge mapping,
-      recommendations tracker, and stronger data quality checks.
-
-    ### Interpretation rule
-
-    The dashboard supports analysis. It does not replace official CCC/DBM validation, agency QAR documentation,
-    COA audit, or climate impact evaluation. Climate-tagged amounts are budget-tagging indicators, not automatic
-    proof of climate outcomes.
-    """)
-
-    st.markdown("### Current Filters")
-    st.dataframe(pd.DataFrame([filters_used]).T.rename(columns={0: "Selected Value"}), use_container_width=True)
+        **Main changes in this version:**
+        - `GRIT TAGGING` is now retained and cleaned as the institution-type filter.
+        - The old `NDC Sector` filter was removed and replaced with `NCCAP Thematic Priority`.
+        - Visualizations were redesigned to avoid overlapping titles, legends, and labels.
+        - Repetitive charts were removed; each tab now has a clearer analytical purpose.
+        - Budget-cycle, participation, agency concentration, FGD/KII, and data quality modules were strengthened.
+        """
+    )
+    st.markdown("### Filter behavior")
+    st.dataframe(pd.DataFrame([{"Filter": k, "Selected value": v} for k, v in filters_used.items()]), use_container_width=True)
 
 
-# ============================================================
-# TAB: DATA PROFILE
-# ============================================================
+
 
 with tab_profile:
-    st.subheader("Data Profile and Dataset Schema")
-
+    st.subheader("Data Profile and Schema")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Records", f"{len(df):,}")
-    c2.metric("Fiscal Year Coverage", f"{df['Fiscal_Year'].min()}–{df['Fiscal_Year'].max()}")
-    c3.metric("Budget Types", f"{df['Type'].nunique():,}")
-    c4.metric("Institution Types", f"{df['GRIT TAGGING'].nunique():,}")
+    c1.metric("Total records", f"{len(df):,}")
+    c2.metric("Filtered records", f"{len(f):,}")
+    c3.metric("Fiscal year range", f"{int(df['Fiscal_Year'].min())}–{int(df['Fiscal_Year'].max())}")
+    c4.metric("Columns", f"{len(df.columns):,}")
 
-    schema = pd.DataFrame({
+    st.markdown("### Institution type distribution")
+    st.dataframe(df["GRIT TAGGING"].value_counts(dropna=False).rename_axis("GRIT TAGGING").reset_index(name="Records"), use_container_width=True)
+
+    st.markdown("### Data dictionary")
+    schema_df = pd.DataFrame({
         "Column": df.columns,
         "Data Type": [str(df[col].dtype) for col in df.columns],
-        "Missing / Blank Count": [
-            int(df[col].isna().sum() + (df[col].astype(str).str.strip().eq("").sum() if df[col].dtype == "object" else 0))
-            for col in df.columns
-        ],
-        "Description": [COLUMN_DICTIONARY.get(col, "Derived or source field from the uploaded dataset.") for col in df.columns],
+        "Missing / Blank Count": [df[col].isna().sum() + (df[col].eq("").sum() if df[col].dtype == "object" else 0) for col in df.columns],
+        "Description": [COLUMN_DICTIONARY.get(col, "Column from uploaded dataset or derived by the dashboard.") for col in df.columns],
     })
-    st.dataframe(schema, use_container_width=True, height=430)
+    st.dataframe(schema_df, use_container_width=True, height=520)
 
-    st.markdown("### Dataset Preview")
-    st.dataframe(df.head(30), use_container_width=True, height=430)
-
-    st.download_button(
-        "Download Data Dictionary CSV",
-        schema.to_csv(index=False).encode("utf-8-sig"),
-        "ccet_data_dictionary.csv",
-        "text/csv",
-    )
+    st.markdown("### Dataset preview")
+    st.dataframe(df.head(30), use_container_width=True, height=380)
 
 
-# ============================================================
-# TAB: EXECUTIVE OVERVIEW
-# ============================================================
 
 with tab_exec:
     st.subheader("Executive Overview")
+    top_agency, top_agency_amount, top_agency_share = safe_top(f, "Agency Label")
+    top_priority, top_priority_amount, top_priority_share = safe_top(f, "NCCAP Priority")
+    top_grit, top_grit_amount, top_grit_share = safe_top(f, "GRIT TAGGING")
 
-    top_agency, top_agency_amount = safe_top_value(f, "Agency Display")
-    top_priority, top_priority_amount = safe_top_value(f, "NCCAP Thematic Priority")
-    top_dept, top_dept_amount = safe_top_value(f, "DEPARTMENT")
+    st.markdown(
+        f"""
+        The filtered dataset covers **{peso_from_raw(total_budget)}** in climate-tagged PAPs across **{f['Agency Unit'].nunique():,} unique institutions** and **{f['PAP ID'].replace('', np.nan).nunique():,} PAP IDs**.
 
-    st.markdown(f"""
-    The current filtered dataset covers **{peso_from_raw(total_budget)}** in climate-tagged PAPs, involving
-    **{unique_institutions:,} institutions** and **{unique_paps:,} unique PAP IDs**.
+        Adaptation accounts for **{adaptation_share:.2f}%** of the filtered total, while mitigation accounts for **{mitigation_share:.2f}%**. The largest institution-type group is **{top_grit}** with **{peso_from_raw(top_grit_amount)}** or **{top_grit_share:.2f}%** of the filtered amount.
 
-    Adaptation accounts for **{percent_label(adaptation_share, 2)}**, while mitigation accounts for
-    **{percent_label(mitigation_share, 2)}** of the filtered total.
-
-    The top institution is **{top_agency}** with **{peso_from_raw(top_agency_amount)}**.
-    The top department is **{top_dept}** with **{peso_from_raw(top_dept_amount)}**.
-    The largest NCCAP thematic priority is **{top_priority}** with **{peso_from_raw(top_priority_amount)}**.
-    """)
+        The top agency/institution is **{top_agency}** with **{peso_from_raw(top_agency_amount)}** or **{top_agency_share:.2f}%** of the filtered total. The largest NCCAP thematic priority is **{top_priority}** with **{peso_from_raw(top_priority_amount)}** or **{top_priority_share:.2f}%**.
+        """
+    )
 
     c1, c2 = st.columns(2)
     with c1:
-        render_chart(build_budget_by_type_chart(f), "overview_budget_by_type", "Budget by Type", height=680)
+        chart_card(
+            "Budget trend under active filters",
+            "Total climate-tagged amount by fiscal year.",
+            fig_budget_trend(f),
+            "exec_budget_trend",
+            "Source: Dashboard computation from loaded CCET PAP-level dataset.",
+            height=560,
+        )
     with c2:
-        render_chart(build_pdp_alignment_chart(f), "overview_pdp_alignment", "PDP Alignment", height=560, width=900)
+        chart_card(
+            "NCCAP priority ranking under active filters",
+            "Top thematic priorities based on the current sidebar selections.",
+            fig_nccap_rank(f),
+            "exec_nccap_priority_ranking",
+            "Source: Dashboard computation from CCET typology-derived NCCAP priority.",
+            height=560,
+        )
 
 
-# ============================================================
-# TAB: KEY FINDINGS
-# ============================================================
+
 
 with tab_key:
     st.subheader("Key Findings")
-
-    smart_note(
-        "This tab presents the core quantitative findings from the dashboard: budget visibility, "
-        "budget-stage movement, adaptation orientation, and concentration. Use the specialized tabs "
-        "for deeper drill-down."
+    st.markdown(
+        """
+        This tab presents the headline findings most aligned with the updated assessment report: growth in climate-tagged appropriations, budget-cycle movement, adaptation-heavy composition, and concentration among institutions.
+        """
     )
 
-    render_chart(
-        build_climate_budget_share_chart(f),
+    chart_card(
+        "Climate-tagged GAA, total national budget, and share of national budget",
+        "Bars show peso amounts; the line shows climate-tagged GAA as a share of the national budget. Values are computed from the loaded dataset for GAA and compared with the national budget reference for FY2022–FY2025.",
+        fig_climate_budget_share(df),
         "key_climate_budget_share",
-        "Climate Budget Share",
-        height=760,
-        width=1450,
+        "Source: Dashboard computation from loaded CCET dataset and national budget reference values used in the assessment report.",
+        height=610,
     )
 
-    st.divider()
+    c1, c2 = st.columns(2)
+    with c1:
+        pivot_2225 = budget_stage_pivot(df, years=[2022, 2023, 2024, 2025])
+        chart_card(
+            "NEP, GAA, and Actual CCET budgets",
+            "Shows how climate-tagged budgets change from proposal to approval to actual reporting.",
+            fig_budget_stage_comparison(pivot_2225),
+            "key_nep_gaa_actual",
+            "Source: Dashboard computation from loaded CCET dataset, FY2022–FY2025.",
+            height=620,
+        )
+    with c2:
+        chart_card(
+            "Adaptation and mitigation share",
+            "Shows whether climate-tagged allocations are adaptation-heavy or mitigation-heavy.",
+            fig_adaptation_mitigation_share(df[df["Fiscal_Year"].isin([2022, 2023, 2024, 2025]) & (df["Type"] == "GAA")]),
+            "key_adaptation_mitigation_share",
+            "Source: Dashboard computation from GAA records, FY2022–FY2025.",
+            height=620,
+        )
 
-    c1, c2, c3, c4 = st.columns(4)
-    gaa_current = f[f["Type"].str.upper().eq("GAA")]["TOTAL"].sum()
-    actual_current = f[f["Type"].str.upper().eq("Actual")]["TOTAL"].sum()
-    nep_current = f[f["Type"].str.upper().eq("NEP")]["TOTAL"].sum()
-    c1.metric("Filtered NEP", peso_from_raw(nep_current))
-    c2.metric("Filtered GAA", peso_from_raw(gaa_current))
-    c3.metric("Filtered Actual", peso_from_raw(actual_current))
-    c4.metric("Top NCCAP Priority", top_priority if len(str(top_priority)) < 24 else str(top_priority)[:24] + "…")
-
-    st.divider()
-    render_chart(
-        build_adaptation_mitigation_share_chart(f),
-        "key_adaptation_mitigation_share",
-        "Adaptation-Mitigation Share",
-        height=700,
-        width=1450,
-    )
-
-
-# ============================================================
-# TAB: PARTICIPATION & COVERAGE
-# ============================================================
 
 with tab_participation:
     st.subheader("Participation and Coverage")
-
-    smart_note(
-        "This module responds to the report finding that CCET participation increased over time, "
-        "but participation alone does not guarantee substantive compliance or results tracking."
+    st.markdown(
+        """
+        This module responds to the report finding that CCET participation increased over time. It counts unique institution units using `GRIT TAGGING + Department + Agency` to avoid undercounting generic agency names.
+        """
     )
+    c1, c2 = st.columns(2)
+    with c1:
+        chart_card(
+            "Participating institutions by fiscal year and GRIT TAGGING",
+            "Counts unique institution units by fiscal year and institution type.",
+            fig_participation_by_year(df),
+            "participation_by_year_grit",
+            "Source: Dashboard computation from loaded CCET PAP-level dataset.",
+            height=600,
+        )
+    with c2:
+        chart_card(
+            "Climate-tagged amount by institution type",
+            "Shows how total tagged amounts are distributed among NGA, GOCC, SUC, and Unclassified records over time.",
+            fig_budget_by_institution(df[df["Type"] == "GAA"] if "GAA" in df["Type"].unique() else df),
+            "budget_by_institution_type",
+            "Source: Dashboard computation from loaded dataset; GAA records used where available.",
+            height=600,
+        )
 
-    render_chart(
-        build_participation_chart(f),
-        "participation_by_institution_type",
-        "Participation by Institution Type",
-        height=700,
-        width=1450,
+    participation_table = df.groupby(["Fiscal_Year", "GRIT TAGGING"], as_index=False).agg(
+        Records=("TOTAL", "size"),
+        Unique_Institutions=("Agency Unit", "nunique"),
+        Unique_PAP_IDs=("PAP ID", lambda s: s.replace("", np.nan).nunique()),
+        Total_B=("TOTAL", lambda s: raw_to_billion(s.sum())),
     )
-
-    st.divider()
-
-    render_chart(
-        build_institution_type_budget_chart(f),
-        "budget_by_institution_type",
-        "Budget by Institution Type",
-        height=680,
-        width=1450,
-    )
-
-    st.markdown("### Participation Table")
-    participation_table = (
-        f.drop_duplicates(["Fiscal_Year", "GRIT TAGGING", "Agency Display"])
-        .groupby(["Fiscal_Year", "GRIT TAGGING"], as_index=False)["Agency Display"]
-        .nunique()
-        .rename(columns={"Agency Display": "Participating Institutions"})
-        .sort_values(["Fiscal_Year", "GRIT TAGGING"])
-    )
-    st.dataframe(participation_table, use_container_width=True, height=420)
+    st.markdown("### Participation and coverage table")
+    st.dataframe(participation_table.sort_values(["Fiscal_Year", "GRIT TAGGING"]), use_container_width=True, height=420)
 
 
-# ============================================================
-# TAB: BUDGET CYCLE
-# ============================================================
 
 with tab_cycle:
     st.subheader("Budget Cycle Analysis")
-
-    smart_note(
-        "This module follows the CCET budget-cycle logic: preparation, legislation, execution, and accountability. "
-        "It highlights whether tagged amounts changed from NEP to GAA to Actual."
+    st.markdown(
+        """
+        This tab follows the budget-cycle logic of CCET: preparation, legislation, execution, and accountability. It helps users avoid treating tagged budgets as final proof of actual spending or climate impact.
+        """
     )
 
-    st.markdown("### Budget Cycle Stage Map")
-    st.dataframe(BUDGET_CYCLE_STAGES, use_container_width=True, height=230)
-
-    render_chart(
-        build_budget_by_type_chart(f),
-        "budget_cycle_nep_gaa_actual_trend",
-        "NEP-GAA-Actual Trend",
-        height=680,
-        width=1450,
+    chart_card(
+        "Dashboard coverage across the public budget cycle",
+        "Shows how the dashboard modules correspond to preparation, legislation, execution, and accountability.",
+        fig_budget_cycle_map(),
+        "budget_cycle_coverage_map",
+        "Source: Dashboard design based on the assessment's public budget-cycle analytical framework.",
+        height=450,
     )
 
-    st.divider()
-
-    render_chart(
-        build_budget_cycle_variance_chart(f),
-        "budget_cycle_variance",
-        "Budget-Cycle Variance",
-        height=720,
-        width=1450,
-    )
-
-    st.divider()
-
-    render_chart(
-        build_actual_vs_gaa_chart(f),
-        "actual_vs_gaa_percent",
-        "Actual vs GAA",
-        height=680,
-        width=1450,
-    )
-
-    st.markdown("### Budget Stage Table")
-    w = budget_stage_wide(f)
-    display = w.copy()
-    for col in ["NEP (Billion Pesos)", "GAA (Billion Pesos)", "Actual (Billion Pesos)", "GAA minus NEP (Billion Pesos)", "Actual minus GAA (Billion Pesos)"]:
-        if col in display:
-            display[col] = display[col].apply(peso_billion if "minus" not in col else signed_peso_billion)
-    if "Actual vs GAA (%)" in display:
-        display["Actual vs GAA (%)"] = display["Actual vs GAA (%)"].apply(lambda x: percent_label(x, 2))
-    keep_cols = [
-        "Fiscal Year", "NEP (Billion Pesos)", "GAA (Billion Pesos)", "Actual (Billion Pesos)",
-        "GAA minus NEP (Billion Pesos)", "Actual minus GAA (Billion Pesos)", "Actual vs GAA (%)"
-    ]
-    st.dataframe(display[[c for c in keep_cols if c in display.columns]], use_container_width=True, height=400)
-
-
-# ============================================================
-# TAB: AGENCY CONCENTRATION
-# ============================================================
-
-with tab_agency:
-    st.subheader("Agency and NGI Concentration")
-
-    smart_note(
-        "This module identifies which institutions drive the climate-tagged budget. It uses department-agency labels "
-        "to avoid confusion among agencies with similar names such as 'Office of the Secretary'."
-    )
-
-    top_n = st.slider("Number of institutions to show", 5, 40, 15)
-
-    render_chart(
-        build_top_ngi_pareto(f, top_n=top_n),
-        "agency_concentration_pareto",
-        "NGI Pareto Concentration",
-        height=760,
-        width=1550,
-    )
-
-    st.divider()
-
-    c1, c2 = st.columns(2)
-    with c1:
-        render_chart(
-            build_ranking_chart(
-                f[f["GRIT TAGGING"].eq("NGA")],
-                "DEPARTMENT",
-                "<b>Top NGA Departments</b>",
-                "Filtered climate-tagged allocation by parent department.",
-                top_n=12,
-            ),
-            "top_nga_departments",
-            "Top NGA Departments",
-            height=680,
-            width=900,
+    pivot_all = budget_stage_pivot(f)
+    if pivot_all.empty:
+        st.info("No NEP/GAA/Actual data available under the current filters.")
+    else:
+        chart_card(
+            "NEP, GAA, and Actual under active filters",
+            "Compares proposed, approved, and actual reported amounts where available.",
+            fig_budget_stage_comparison(pivot_all),
+            "cycle_nep_gaa_actual_filtered",
+            "Source: Dashboard computation from filtered CCET dataset.",
+            height=620,
         )
-    with c2:
-        render_chart(
-            build_ranking_chart(
-                f[f["GRIT TAGGING"].eq("GOCC")],
-                "Agency Display",
-                "<b>Top GOCC Agencies</b>",
-                "Filtered climate-tagged allocation by GOCC.",
-                top_n=12,
-            ),
-            "top_gocc_agencies",
-            "Top GOCC Agencies",
-            height=680,
-            width=900,
-        )
+        c1, c2 = st.columns(2)
+        with c1:
+            chart_card(
+                "Budget-cycle variance",
+                "Positive values indicate increases between stages; negative values indicate reductions.",
+                fig_budget_variance(pivot_all),
+                "cycle_budget_variance_filtered",
+                "Formula: GAA variance = GAA - NEP; Actual variance = Actual - GAA.",
+                height=620,
+            )
+        with c2:
+            chart_card(
+                "Actual compared with GAA",
+                "Shows the percentage gap between actual and approved GAA where both values are available.",
+                fig_actual_vs_gaa(pivot_all),
+                "cycle_actual_vs_gaa_filtered",
+                "Formula: Actual vs GAA (%) = (Actual - GAA) / GAA × 100.",
+                height=560,
+            )
 
-    st.divider()
-
-    c3, c4 = st.columns(2)
-    with c3:
-        render_chart(
-            build_ranking_chart(
-                f[f["GRIT TAGGING"].eq("SUC")],
-                "Agency Display",
-                "<b>Top SUCs</b>",
-                "Filtered climate-tagged allocation by SUC.",
-                top_n=12,
-            ),
-            "top_sucs",
-            "Top SUCs",
-            height=680,
-            width=900,
-        )
-    with c4:
-        render_chart(
-            build_ranking_chart(
-                f,
-                "Agency Display",
-                "<b>Top Institutions Overall</b>",
-                "Filtered climate-tagged allocation by institution.",
-                top_n=12,
-            ),
-            "top_institutions_overall",
-            "Top Institutions Overall",
-            height=680,
-            width=900,
-        )
+        display_pivot = pivot_all.copy()
+        for col in ["NEP", "GAA", "Actual", "GAA minus NEP", "Actual minus GAA"]:
+            display_pivot[col] = display_pivot[col].apply(peso_billion)
+        display_pivot["Actual vs GAA (%)"] = pivot_all["Actual vs GAA (%)"].apply(lambda x: pct(x, 2))
+        st.markdown("### Budget-stage table")
+        st.dataframe(display_pivot, use_container_width=True)
 
 
-# ============================================================
-# TAB: NCCAP PRIORITIES
-# ============================================================
+
+
+with tab_concentration:
+    st.subheader("Agency Concentration")
+    st.markdown(
+        """
+        This module identifies which institutions drive climate-tagged budgets. It uses combined department-agency labels so generic names such as “Office of the Secretary” are not shown without context.
+        """
+    )
+    ranking_basis = st.radio(
+        "Ranking basis",
+        ["GAA", "NEP", "Actual", "Use active filters"],
+        horizontal=True,
+        help="Use GAA for report-style allocation rankings. Use active filters to rank based on your sidebar selections.",
+    )
+    rbase = ranking_base(f, ranking_basis)
+    if rbase.empty:
+        st.info("No data available for the selected ranking basis.")
+    else:
+        c1, c2 = st.columns([1.2, 1])
+        with c1:
+            chart_card(
+                "Top institutions by climate-tagged amount",
+                "Color intensity indicates cumulative share among the displayed top institutions. Hover to inspect exact values.",
+                fig_agency_pareto(rbase, top_n=20),
+                "agency_pareto_top20",
+                "Source: Dashboard computation from filtered CCET dataset.",
+                height=760,
+            )
+        with c2:
+            top_agency, top_amount, top_share = safe_top(rbase, "Agency Label")
+            top10 = rbase.groupby("Agency Label", as_index=False)["TOTAL"].sum().sort_values("TOTAL", ascending=False).head(10)
+            top10_share = top10["TOTAL"].sum() / rbase["TOTAL"].sum() * 100 if rbase["TOTAL"].sum() else np.nan
+            st.metric("Top institution", top_agency)
+            st.metric("Top institution amount", peso_from_raw(top_amount))
+            st.metric("Top institution share", pct(top_share, 2))
+            st.metric("Top 10 share", pct(top10_share, 2))
+            st.markdown(
+                """
+                <div class="method-box">
+                <b>Why this matters:</b> Large aggregate climate budgets may be driven by a small number of infrastructure or agriculture institutions. Concentration analysis helps users see whether the budget is broad-based or dominated by a few agencies.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.divider()
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            nga = rbase[rbase["GRIT TAGGING"] == "NGA"]
+            chart_card(
+                "Top NGA departments",
+                "Aggregates climate-tagged amounts by department for NGA records.",
+                fig_top_agencies(nga, group_col="DEPARTMENT", top_n=12) if not nga.empty else go.Figure(),
+                "top_nga_departments",
+                "Source: Dashboard computation from NGA records.",
+                height=620,
+            )
+        with c2:
+            gocc = rbase[rbase["GRIT TAGGING"] == "GOCC"]
+            chart_card(
+                "Top GOCC agencies",
+                "Ranks GOCC agencies under the selected basis.",
+                fig_top_agencies(gocc, group_col="Agency Label", top_n=12) if not gocc.empty else go.Figure(),
+                "top_gocc_agencies",
+                "Source: Dashboard computation from GOCC records.",
+                height=620,
+            )
+        with c3:
+            suc = rbase[rbase["GRIT TAGGING"] == "SUC"]
+            chart_card(
+                "Top SUCs",
+                "Ranks SUCs under the selected basis.",
+                fig_top_agencies(suc, group_col="Agency Label", top_n=12) if not suc.empty else go.Figure(),
+                "top_sucs",
+                "Source: Dashboard computation from SUC records.",
+                height=620,
+            )
+
 
 with tab_nccap:
     st.subheader("NCCAP Thematic Priorities")
-
-    smart_note(
-        "This module replaces the previous NDC-sector filter emphasis with the NCCAP thematic priority lens. "
-        "NCCAP classification is derived from the CCET typology code."
+    st.markdown(
+        """
+        NCCAP priorities are derived from the CCET typology ID. This module shows both the thematic distribution and the exact PAP-level records behind the classifications.
+        """
     )
-
-    render_chart(
-        build_nccap_heatmap(f),
-        "nccap_priority_matrix",
-        "NCCAP Priority Matrix",
-        height=850,
+    chart_card(
+        "NCCAP thematic priority allocation matrix",
+        "Each cell shows amount and share within that fiscal year. Darker cells indicate larger allocations.",
+        fig_nccap_heatmap(f),
+        "nccap_priority_heatmap_filtered",
+        "Source: Dashboard computation from filtered dataset. Formula: priority share = priority allocation / fiscal-year total × 100.",
+        height=720,
         width=1550,
     )
-
-    st.divider()
-
     c1, c2 = st.columns([1, 1])
     with c1:
-        render_chart(
-            build_nccap_rank(f),
-            "nccap_priority_ranking",
-            "NCCAP Priority Ranking",
-            height=680,
-            width=900,
+        chart_card(
+            "NCCAP priority ranking",
+            "Ranks priorities by total amount under current filters.",
+            fig_nccap_rank(f),
+            "nccap_priority_ranking_filtered",
+            "Source: Dashboard computation from typology-derived NCCAP priority.",
+            height=620,
         )
     with c2:
-        render_chart(
-            build_nccap_stacked(f),
-            "nccap_priority_mix",
-            "NCCAP Priority Mix",
-            height=820,
-            width=900,
-        )
-
-    st.markdown("### NCCAP Priority Table")
-    nccap_table = safe_group_sum(f, ["Fiscal_Year", "NCCAP Thematic Priority"], "TOTAL")
-    nccap_table["Amount"] = nccap_table["TOTAL"].apply(peso_from_raw)
-    total_by_year = nccap_table.groupby("Fiscal_Year")["TOTAL"].transform("sum")
-    nccap_table["Share of Fiscal Year (%)"] = nccap_table["TOTAL"] / total_by_year * 100
-    st.dataframe(
-        nccap_table.sort_values(["Fiscal_Year", "TOTAL"], ascending=[True, False])[
-            ["Fiscal_Year", "NCCAP Thematic Priority", "Amount", "Share of Fiscal Year (%)"]
-        ],
-        use_container_width=True,
-        height=460,
-    )
+        priority_table = f.groupby(["NCCAP Priority", "Climate Pillar"], as_index=False).agg(
+            Records=("TOTAL", "size"),
+            Unique_PAP_IDs=("PAP ID", lambda s: s.replace("", np.nan).nunique()),
+            Total_B=("TOTAL", lambda s: raw_to_billion(s.sum())),
+        ).sort_values("Total_B", ascending=False)
+        st.markdown("### NCCAP priority table")
+        st.dataframe(priority_table, use_container_width=True, height=560)
 
 
-# ============================================================
-# TAB: FGD/KII CHALLENGES
-# ============================================================
+
 
 with tab_fgd:
-    st.subheader("FGD/KII Challenges and Dashboard Responses")
-
-    smart_note(
-        "This module turns FGD/KII implementation issues into structured dashboard requirements. "
-        "It connects qualitative findings with budget-cycle stages, recommendations, and data science responses."
+    st.subheader("FGD/KII Challenges")
+    st.markdown(
+        """
+        This tab translates qualitative findings into dashboard-ready monitoring categories. It links implementation challenges to dashboard features and reform directions.
+        """
     )
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Coded Themes", FGD_KII_INSIGHTS["Theme"].nunique())
-    c2.metric("High-Priority Issues", int((FGD_KII_INSIGHTS["Priority"] == "High").sum()))
-    c3.metric("Budget Stages Covered", FGD_KII_INSIGHTS["Budget Cycle Stage"].nunique())
-
-    render_chart(
-        build_fgd_priority_chart(),
+    chart_card(
+        "FGD/KII challenge priorities by budget-cycle stage",
+        "Counts coded implementation issues by priority level and budget-cycle stage.",
+        fig_challenge_priorities(),
         "fgd_kii_priority_chart",
-        "FGD/KII Challenge Priorities",
-        height=620,
-        width=1450,
+        "Source: Synthesized FGD/KII challenge themes from the updated assessment direction.",
+        height=500,
     )
-
-    st.markdown("### Challenge-to-Dashboard Matrix")
-    st.dataframe(FGD_KII_INSIGHTS, use_container_width=True, height=520)
-
+    st.markdown("### Challenge-to-dashboard response matrix")
+    st.dataframe(FGD_KII_INSIGHTS, use_container_width=True, height=480)
     st.download_button(
-        "Download FGD/KII Challenge Matrix CSV",
-        FGD_KII_INSIGHTS.to_csv(index=False).encode("utf-8-sig"),
-        "fgd_kii_challenge_dashboard_matrix.csv",
-        "text/csv",
+        "Download FGD/KII challenge matrix",
+        data=FGD_KII_INSIGHTS.to_csv(index=False).encode("utf-8-sig"),
+        file_name="fgd_kii_challenge_matrix.csv",
+        mime="text/csv",
     )
 
 
-# ============================================================
-# TAB: RECOMMENDATIONS
-# ============================================================
 
 with tab_reco:
     st.subheader("Recommendations Tracker")
-
-    smart_note(
-        "This module translates recommendations into dashboard modules, data science methods, and implementation monitoring areas."
+    st.markdown(
+        """
+        The tracker operationalizes the assessment recommendations as dashboard features, monitoring actions, and possible next-build enhancements.
+        """
     )
-
-    render_chart(
-        build_recommendation_chart(),
-        "recommendation_priority_tracker",
-        "Recommendation Priority Tracker",
-        height=540,
-        width=1100,
-    )
-
-    priority_filter = st.selectbox(
-        "Filter recommendation table by priority",
-        ["All"] + sorted(RECOMMENDATION_SCORECARD["Priority"].unique().tolist()),
-    )
-    reco = RECOMMENDATION_SCORECARD.copy()
+    priority_filter = st.selectbox("Recommendation priority", ["All"] + sorted(FGD_KII_INSIGHTS["Priority"].unique().tolist()))
+    stage_filter = st.selectbox("Budget-cycle stage", ["All"] + sorted(FGD_KII_INSIGHTS["Budget Cycle Stage"].unique().tolist()))
+    reco = FGD_KII_INSIGHTS.copy()
     if priority_filter != "All":
         reco = reco[reco["Priority"] == priority_filter]
-    st.dataframe(reco, use_container_width=True, height=430)
+    if stage_filter != "All":
+        reco = reco[reco["Budget Cycle Stage"] == stage_filter]
+    st.dataframe(reco[["Theme", "Budget Cycle Stage", "Challenge", "Recommendation", "Smart Dashboard Response", "Priority"]], use_container_width=True, height=440)
 
-    st.markdown("### Proposed Smart Add-ons for the Next Build")
-    st.write("""
-    - Agency-level CCET maturity scorecard.
-    - PAP-level NEP-GAA-Actual reconciliation upload template.
-    - Attribution method field: whole PAP, component-based, proportional, or not specified.
-    - QAR completeness tracker.
-    - Climate indicator and accomplishment linkage fields.
-    - Audit-readiness tracker connected to data-quality flags.
-    - International CBT benchmarking page for Nepal, Bangladesh, Indonesia, and France.
-    """)
+    st.markdown("### International CBT design lessons to reflect in future dashboard builds")
+    st.dataframe(INTERNATIONAL_LESSONS, use_container_width=True, height=260)
 
-
-# ============================================================
-# TAB: POLICY ALIGNMENT
-# ============================================================
-
-with tab_alignment:
-    st.subheader("PDP / Executive Agenda Alignment")
-
-    smart_note(
-        "This module is exploratory. Alignment is estimated through keyword matching in PAP descriptions, typology descriptions, agencies, and departments. "
-        "It is not official validation."
+    st.markdown(
+        """
+        ### Suggested smart-dashboard enhancements
+        - Agency-level CCET maturity scorecard.
+        - PAP-level NEP-GAA-Actual reconciliation template.
+        - Attribution method field: whole PAP, proportional, component-based, or not specified.
+        - QAR completeness tracker.
+        - Climate indicator / M&E linkage fields.
+        - Audit-readiness field and evidence checklist.
+        - Future scoring model for climate relevance confidence.
+        """
     )
 
+
+
+
+with tab_policy:
+    st.subheader("PDP / Executive Agenda Proxy Alignment")
+    st.markdown(
+        """
+        This tab uses keyword-based text classification to estimate possible alignment with climate and development priorities. It is exploratory and does not replace official validation.
+        """
+    )
     c1, c2 = st.columns(2)
     with c1:
-        render_chart(
-            build_pdp_alignment_chart(f),
-            "policy_alignment_share",
-            "Policy Alignment Share",
-            height=560,
-            width=900,
+        chart_card(
+            "PDP / Executive Agenda alignment share",
+            "Estimated alignment based on keyword hits in PAP, typology, agency, and department text.",
+            fig_pdp_alignment(f),
+            "pdp_alignment_share",
+            "Method: rule-based NLP proxy. Hits ≥ 3 = Strongly Aligned; hits ≥ 1 = Partially Aligned; hits = 0 = Weak / Unclassified.",
+            height=440,
         )
     with c2:
-        render_chart(
-            build_pdp_alignment_trend(f),
-            "policy_alignment_trend",
-            "Policy Alignment Trend",
-            height=650,
-            width=900,
+        chart_card(
+            "PDP / Executive Agenda alignment trend",
+            "Shows how estimated alignment categories move over time under active filters.",
+            fig_pdp_alignment_trend(f),
+            "pdp_alignment_trend",
+            "Source: Dashboard computation from filtered dataset using keyword-based proxy classification.",
+            height=560,
         )
 
-    st.markdown("### Keyword-Based Classification Rules")
-    st.code(
-        "Hits = count of matched climate/development keywords in PAP text\n"
-        "If Hits ≥ 3 → Strongly Aligned\n"
-        "If Hits ≥ 1 → Partially Aligned\n"
-        "If Hits = 0 → Weak / Unclassified",
-        language="text",
-    )
+    st.markdown("### Keyword basis used by the proxy")
+    st.write(", ".join(PDP_KEYWORDS))
 
 
-# ============================================================
-# TAB: PAP EXPLORER
-# ============================================================
+
+
+with tab_trends:
+    st.subheader("Budget Trends")
+    st.markdown("Trend analytics based on the active sidebar filters.")
+    c1, c2 = st.columns(2)
+    with c1:
+        chart_card(
+            "Climate budget trend",
+            "Time-series view of total climate-tagged amount under active filters.",
+            fig_budget_trend(f),
+            "trend_total_budget",
+            "Formula: yearly total = sum(TOTAL) by fiscal year.",
+            height=560,
+        )
+    with c2:
+        chart_card(
+            "Year-on-year growth rate",
+            "Highlights unusually sharp increases or declines in the filtered climate budget.",
+            fig_yoy_growth(f),
+            "trend_yoy_growth",
+            "Formula: YoY growth = (current year total - previous year total) / previous year total × 100.",
+            height=520,
+        )
+
+    by_year = f.groupby("Fiscal_Year", as_index=False).agg(
+        Records=("TOTAL", "size"),
+        Total_B=("TOTAL", lambda s: raw_to_billion(s.sum())),
+        Adaptation_B=("ADAPTATION", lambda s: raw_to_billion(s.sum())),
+        Mitigation_B=("MITIGATION", lambda s: raw_to_billion(s.sum())),
+        Unique_Institutions=("Agency Unit", "nunique"),
+    ).sort_values("Fiscal_Year")
+    by_year["YoY Growth (%)"] = by_year["Total_B"].pct_change() * 100
+    st.markdown("### Yearly trend table")
+    st.dataframe(by_year, use_container_width=True)
+
 
 with tab_pap:
     st.subheader("PAP Explorer")
-
-    search = st.text_input("Search PAP Description, Agency, Department, Typology, or NCCAP Priority")
+    st.markdown("Search and validate the PAP-level records behind the charts.")
+    search = st.text_input("Search PAP description, agency, department, typology, or PAP ID")
     explorer = f.copy()
     if search:
-        s = search.lower()
-        explorer = explorer[
+        s = search.lower().strip()
+        mask = (
             explorer["PAP Description"].str.lower().str.contains(s, na=False) |
             explorer["AGENCY"].str.lower().str.contains(s, na=False) |
             explorer["DEPARTMENT"].str.lower().str.contains(s, na=False) |
             explorer["TYPOLOGY Description"].str.lower().str.contains(s, na=False) |
-            explorer["NCCAP Thematic Priority"].str.lower().str.contains(s, na=False)
-        ]
+            explorer["TYPOLOGY ID"].str.lower().str.contains(s, na=False) |
+            explorer["PAP ID"].str.lower().str.contains(s, na=False)
+        )
+        explorer = explorer[mask]
 
-    show_cols = [
-        "Fiscal_Year", "Type", "GRIT TAGGING", "DEPARTMENT", "AGENCY",
+    explorer_cols = [
+        "Fiscal_Year", "Type", "GRIT TAGGING", "DEPARTMENT", "AGENCY", "Agency Label",
         "PAP ID", "PAP Description", "TYPOLOGY ID", "TYPOLOGY Description",
-        "Climate Pillar", "NCCAP Thematic Priority", "PDP / Executive Agenda Alignment",
-        "ADAPTATION", "MITIGATION", "TOTAL",
+        "Climate Pillar", "NCCAP Priority", "PDP / Executive Agenda Alignment",
+        "ADAPTATION", "MITIGATION", "TOTAL", "TOTAL_B",
     ]
-    explorer_display = explorer[show_cols].sort_values("TOTAL", ascending=False).copy()
-    explorer_display["ADAPTATION"] = explorer_display["ADAPTATION"].apply(peso_from_raw)
-    explorer_display["MITIGATION"] = explorer_display["MITIGATION"].apply(peso_from_raw)
-    explorer_display["TOTAL"] = explorer_display["TOTAL"].apply(peso_from_raw)
-
-    st.dataframe(explorer_display, use_container_width=True, height=620)
-
+    st.dataframe(explorer[explorer_cols].sort_values("TOTAL", ascending=False), use_container_width=True, height=620)
     st.download_button(
         "Download PAP Explorer CSV",
-        explorer[show_cols].to_csv(index=False).encode("utf-8-sig"),
-        "pap_explorer_filtered.csv",
-        "text/csv",
+        data=explorer[explorer_cols].to_csv(index=False).encode("utf-8-sig"),
+        file_name="pap_explorer_filtered.csv",
+        mime="text/csv",
     )
 
 
-# ============================================================
-# TAB: DATA QUALITY
-# ============================================================
+
 
 with tab_quality:
-    st.subheader("Data Quality and Validation")
-
-    smart_note(
-        "This module checks whether the filtered dataset contains records that may need validation. "
-        "It supports cautious interpretation before using dashboard outputs for policy conclusions."
+    st.subheader("Data Quality Checks")
+    st.markdown(
+        """
+        Data quality checks help prevent overclaiming. They identify records that may need validation before they are used for policy conclusions.
+        """
     )
-
-    c1, c2, c3 = st.columns(3)
-    q_summary = data_quality_summary(f)
-    total_flags = int(q_summary["Flagged Records"].sum())
-    critical_flags = int(
-        (
-            data_quality_masks(f)["Missing typology ID"] |
-            data_quality_masks(f)["Zero or blank total"] |
-            data_quality_masks(f)["Adaptation + Mitigation ≠ Total"] |
-            data_quality_masks(f)["Duplicate PAP-stage records"]
-        ).sum()
-    )
-    c1.metric("Data Quality Score", f"{q_score:.1f}/100")
-    c2.metric("Total Flag Events", f"{total_flags:,}")
-    c3.metric("Critical Flagged Rows", f"{critical_flags:,}")
-
-    render_chart(
-        build_quality_chart(f),
+    qc = build_quality_flags(f)
+    chart_card(
+        "Data quality flags under active filters",
+        "Counts records that may require review or validation.",
+        fig_quality_flags(qc),
         "data_quality_flags",
-        "Data Quality Flags",
-        height=720,
-        width=1450,
+        "Source: Dashboard rule-based validation checks.",
+        height=650,
     )
+    st.markdown("### Quality summary table")
+    st.dataframe(qc.sort_values("Flagged Records", ascending=False), use_container_width=True)
 
-    st.markdown("### Quality Summary Table")
-    q_table = q_summary.copy()
-    q_table["Share of Filtered Records (%)"] = q_table["Share of Filtered Records (%)"].map(lambda x: f"{x:.2f}%")
-    st.dataframe(q_table, use_container_width=True, height=380)
-
-    issue = st.selectbox("Inspect flagged records", list(data_quality_masks(f).keys()))
-    mask = data_quality_masks(f)[issue]
-    st.dataframe(f.loc[mask], use_container_width=True, height=470)
-
+    issue = st.selectbox("Inspect flagged records for", qc["Data Quality Check"].tolist())
+    flagged = f[quality_mask(f, issue)]
+    st.write(f"Flagged records for **{issue}**: {len(flagged):,}")
+    st.dataframe(flagged.head(1000), use_container_width=True, height=420)
     st.download_button(
-        "Download Selected Data Quality Flags CSV",
-        f.loc[mask].to_csv(index=False).encode("utf-8-sig"),
-        f"data_quality_{issue.lower().replace(' ', '_').replace('/', '_')}.csv",
-        "text/csv",
+        "Download flagged records CSV",
+        data=flagged.to_csv(index=False).encode("utf-8-sig"),
+        file_name=f"data_quality_{issue.lower().replace(' ', '_').replace('/', '_')}.csv",
+        mime="text/csv",
     )
 
 
-# ============================================================
-# TAB: METHODS & RATIONALE
-# ============================================================
+
 
 with tab_methods:
     st.subheader("Methods, Rationale, and Data Science Application")
+    st.markdown(
+        """
+        The dashboard operationalizes CCET policy requirements through applied data science. It loads, cleans, classifies, validates, aggregates, visualizes, and interprets climate-tagged public expenditure data across the budget cycle.
+        """
+    )
 
-    st.markdown("""
-    ### Policy and research rationale
+    st.markdown("### Dashboard methods by feature")
+    methods_feature = pd.DataFrame([
+        {"Feature": "Dataset loader", "Policy rationale": "CCET requires tagged expenditure data to be tracked and reported.", "Data science method": "Data ingestion / ETL", "Formula or rule": "Raw CSV → cleaned dataset → analysis-ready dataset"},
+        {"Feature": "GRIT TAGGING filter", "Policy rationale": "National CCET covers NGAs, GOCCs, and SUCs.", "Data science method": "Categorical standardization", "Formula or rule": "Normalize GRIT TAGGING to NGA, GOCC, SUC, or Unclassified"},
+        {"Feature": "NCCAP Thematic Priority filter", "Policy rationale": "CCET typologies are anchored on NCCAP priorities.", "Data science method": "Feature engineering", "Formula or rule": "Extract priority code from TYPOLOGY ID"},
+        {"Feature": "KPI cards", "Policy rationale": "CCET should generate timely climate expenditure statistics.", "Data science method": "Descriptive analytics", "Formula or rule": "sum(TOTAL), sum(ADAPTATION), sum(MITIGATION), count unique agencies/PAPs"},
+        {"Feature": "Budget cycle analysis", "Policy rationale": "CCET follows preparation, legislation, execution, and accountability.", "Data science method": "Variance and utilization-gap analysis", "Formula or rule": "GAA - NEP; Actual - GAA; (Actual - GAA) / GAA × 100"},
+        {"Feature": "Agency concentration", "Policy rationale": "Climate-tagged budgets may be driven by a few institutions.", "Data science method": "Ranking and concentration analysis", "Formula or rule": "rank agencies by sum(TOTAL); top 10 share"},
+        {"Feature": "FGD/KII module", "Policy rationale": "Implementation challenges must inform reforms.", "Data science method": "Qualitative coding", "Formula or rule": "finding → theme → challenge → recommendation → priority"},
+        {"Feature": "Data quality", "Policy rationale": "CCET analysis depends on reliable administrative data.", "Data science method": "Rule-based anomaly detection", "Formula or rule": "missing fields, zero total, mismatch, duplicates"},
+    ])
+    st.dataframe(methods_feature, use_container_width=True, height=360)
 
-    The dashboard operationalizes the Climate Change Expenditure Tagging logic as a public financial management
-    and policy analytics system. It supports the identification, classification, tracking, monitoring, and reporting
-    of climate-related public expenditures.
+    st.markdown("### Methods by visualization")
+    methods_viz = pd.DataFrame([
+        {"Visualization": "Climate-tagged GAA vs national budget", "Method": "Trend + ratio analysis", "Formula": "Climate share = climate-tagged GAA / total national budget × 100", "Use": "Shows budget visibility relative to the national budget."},
+        {"Visualization": "NEP-GAA-Actual comparison", "Method": "Budget-stage comparison", "Formula": "Compare NEP vs GAA vs Actual", "Use": "Shows movement across budget stages."},
+        {"Visualization": "Budget-cycle variance", "Method": "Delta analysis", "Formula": "GAA - NEP; Actual - GAA", "Use": "Identifies increases/reductions requiring PAP-level review."},
+        {"Visualization": "Actual vs GAA", "Method": "Utilization gap analysis", "Formula": "(Actual - GAA) / GAA × 100", "Use": "Shows whether approved allocations translated into actual reported spending."},
+        {"Visualization": "Adaptation vs mitigation share", "Method": "Composition analysis", "Formula": "Pillar amount / total × 100", "Use": "Shows whether the budget is adaptation-heavy or mitigation-heavy."},
+        {"Visualization": "Participation by GRIT TAGGING", "Method": "Coverage analysis", "Formula": "count unique Agency Unit by year and GRIT TAGGING", "Use": "Shows participation growth by institution type."},
+        {"Visualization": "Agency concentration", "Method": "Pareto/concentration analysis", "Formula": "agency total / overall total × 100", "Use": "Shows whether budgets are concentrated among a few institutions."},
+        {"Visualization": "NCCAP heatmap", "Method": "Cross-tabulation + share analysis", "Formula": "priority allocation / fiscal-year total × 100", "Use": "Shows amount and share per priority and fiscal year."},
+        {"Visualization": "PDP alignment", "Method": "Rule-based NLP proxy", "Formula": "keyword hits: ≥3 strong, ≥1 partial, 0 weak", "Use": "Explores possible alignment but does not replace official validation."},
+        {"Visualization": "Data quality flags", "Method": "Rule-based validation", "Formula": "flag missing, zero, mismatch, duplicate records", "Use": "Identifies records needing validation."},
+    ])
+    st.dataframe(methods_viz, use_container_width=True, height=420)
 
-    The dashboard is aligned with the National CCET assessment logic: CCET is treated as a system-level tool for
-    climate budgeting, not as a direct measure of project-level climate impact. Therefore, all outputs should be read
-    as evidence of budget tagging, expenditure visibility, and institutional process quality.
-
-    ### Data science pipeline
-
-    1. **Data ingestion** — load default or uploaded CSV.
-    2. **Data cleaning** — standardize fields, convert numbers, clean text, and fix column names.
-    3. **Feature engineering** — derive Climate Pillar, NCCAP Code, NCCAP Thematic Priority, and policy-alignment proxy.
-    4. **Interactive filtering** — allow users to slice by fiscal year, budget type, GRIT TAGGING, department, pillar, NCCAP priority, and alignment.
-    5. **Descriptive analytics** — compute totals, shares, counts, rankings, and participation indicators.
-    6. **Diagnostic analytics** — compare NEP, GAA, Actual, variance, and utilization gaps.
-    7. **Qualitative coding** — structure FGD/KII challenges into themes, recommendations, and dashboard responses.
-    8. **Data validation** — flag missing, inconsistent, zero, duplicate, and unclassified records.
-    9. **Data productization** — export charts, filtered data, and summary reports.
-
-    ### Core formulas
-
-    ```text
-    Total Climate Budget = sum(TOTAL)
-
-    Adaptation Share (%) = sum(ADAPTATION) / sum(TOTAL) × 100
-
-    Mitigation Share (%) = sum(MITIGATION) / sum(TOTAL) × 100
-
-    Climate Budget Share (%) = Climate-Tagged GAA / Total National Budget × 100
-
-    GAA Variance = GAA - NEP
-
-    Actual Variance = Actual - GAA
-
-    Actual vs GAA (%) = (Actual - GAA) / GAA × 100
-
-    Priority Share (%) = NCCAP Priority Allocation / Fiscal Year Total × 100
-
-    YoY Growth (%) = (Current Year Total - Previous Year Total) / Previous Year Total × 100
-
-    Data Quality Score = 100 - critical flagged row rate
-    ```
-
-    ### Important caveat
-
-    Climate-tagged budget is not the same as climate impact. It is a budget-tagging and public finance tracking indicator.
-    The dashboard must therefore be used with QAR documents, agency reports, accomplishment data, audit information,
-    and policy interpretation.
-    """)
-
-    method_table = pd.DataFrame([
-        ["Budget visibility", "Trend and ratio analysis", "Climate-tagged GAA vs national budget share"],
-        ["Budget-cycle traceability", "Variance and utilization-gap analysis", "NEP-GAA-Actual charts"],
-        ["Climate objective mix", "Composition analysis", "Adaptation vs mitigation share"],
-        ["Institutional concentration", "Ranking and Pareto analysis", "Top NGI / agency concentration"],
-        ["NCCAP alignment", "Typology-based classification", "NCCAP matrix and priority ranking"],
-        ["Implementation challenges", "Qualitative coding", "FGD/KII challenge tracker"],
-        ["Recommendation management", "Decision-support mapping", "Recommendations tracker"],
-        ["Reliability checks", "Rule-based anomaly detection", "Data quality flags"],
-    ], columns=["Analytical Need", "Data Science Method", "Dashboard Module"])
-
-    st.dataframe(method_table, use_container_width=True, height=360)
+    st.markdown(
+        """
+        ### Legal and research basis to cite in the report text
+        - DBM-CCC-DILG JMC No. 2015-01 for Local CCET tagging/tracking in the local budget.
+        - DBM-CCC JMC No. 2015-01 and JMC No. 2013-01 for National CCET.
+        - Climate Change Act of 2009 for mainstreaming climate change in government policy and planning.
+        - NCCAP 2011–2028 for thematic climate priorities.
+        - CPEIR / World Bank literature for climate public expenditure and institutional review.
+        - Monsod UPSE Discussion Paper for analysis of NCCAP alignment and budget concentration.
+        - PEFA-Climate for climate-responsive public financial management and expenditure tracking.
+        - Updated CCET Impact Assessment Report for FGD/KII challenges, public budget-cycle framing, and recommendations.
+        """
+    )
