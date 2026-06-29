@@ -1173,14 +1173,13 @@ def generate_pdf_report(f, filters_used):
 # MAIN APP: DATA LOAD
 # ============================================================
 
-st.title("National CCET Smart Policy Analytics Dashboard")
+st.title("National CCET Data Analytics Dashboard")
 st.caption("PAP-level climate budget analytics, budget-cycle traceability, NCCAP priorities, FGD/KII insights, and data quality validation")
 
 st.sidebar.header("Dataset")
 uploaded_file = st.sidebar.file_uploader(
     "Upload CCET CSV dataset",
     type=["csv"],
-    help="Upload the cleaned National CCET PAP dataset. If no file is uploaded, the app will look for data/ccet_data.csv or the latest cleaned CSV in the working folder.",
 )
 
 if uploaded_file is not None:
@@ -1306,7 +1305,6 @@ st.markdown(
 # ============================================================
 
 tabs = st.tabs([
-    "Guide",
     "Data Profile",
     "Executive Overview",
     "Key Findings",
@@ -1324,7 +1322,6 @@ tabs = st.tabs([
 ])
 
 (
-    tab_guide,
     tab_profile,
     tab_exec,
     tab_key,
@@ -1346,31 +1343,7 @@ tabs = st.tabs([
 # GUIDE
 # ============================================================
 
-with tab_guide:
-    st.subheader("Dashboard Guide")
-    st.markdown(
-        """
-        This dashboard is organized according to the user's analytical journey:
 
-        **Data loading → filters → KPI cards → key findings → participation → budget cycle → agency concentration → NCCAP priorities → FGD/KII challenges → recommendations → policy alignment → PAP explorer → data quality.**
-
-        The dashboard is intended for CCET policy review and decision support. It uses the cleaned PAP-level dataset and converts raw values from **thousand pesos** into display units.
-
-        **Main changes in this version:**
-        - `GRIT TAGGING` is now retained and cleaned as the institution-type filter.
-        - The old `NDC Sector` filter was removed and replaced with `NCCAP Thematic Priority`.
-        - Visualizations were redesigned to avoid overlapping titles, legends, and labels.
-        - Repetitive charts were removed; each tab now has a clearer analytical purpose.
-        - Budget-cycle, participation, agency concentration, FGD/KII, and data quality modules were strengthened.
-        """
-    )
-    st.markdown("### Filter behavior")
-    st.dataframe(pd.DataFrame([{"Filter": k, "Selected value": v} for k, v in filters_used.items()]), use_container_width=True)
-
-
-# ============================================================
-# DATA PROFILE
-# ============================================================
 
 with tab_profile:
     st.subheader("Data Profile and Schema")
@@ -1756,18 +1729,7 @@ with tab_reco:
     st.markdown("### International CBT design lessons to reflect in future dashboard builds")
     st.dataframe(INTERNATIONAL_LESSONS, use_container_width=True, height=260)
 
-    st.markdown(
-        """
-        ### Suggested smart-dashboard enhancements
-        - Agency-level CCET maturity scorecard.
-        - PAP-level NEP-GAA-Actual reconciliation template.
-        - Attribution method field: whole PAP, proportional, component-based, or not specified.
-        - QAR completeness tracker.
-        - Climate indicator / M&E linkage fields.
-        - Audit-readiness field and evidence checklist.
-        - Future scoring model for climate relevance confidence.
-        """
-    )
+
 
 
 # ============================================================
