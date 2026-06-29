@@ -37,8 +37,7 @@ st.set_page_config(
 # ============================================================
 
 DEFAULT_DATA_CANDIDATES = [
-    "data/ccet_data.csv",
-    "Cleaned_National_CCET_PAPs_FY_2017_to_2026.csv"
+    "data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.csv"
 ]
 
 # The cleaned National CCET PAP-level dataset stores budget values in thousand pesos.
