@@ -1,5 +1,4 @@
 
-
 import os
 import re
 from io import BytesIO
@@ -22,20 +21,26 @@ except ModuleNotFoundError:
     REPORTLAB_AVAILABLE = False
 
 
+# ============================================================
+# PAGE CONFIG
+# ============================================================
 
 st.set_page_config(
     page_title="National CCET Smart Analytics Dashboard",
-    page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 
-DEFAULT_DATA_CANDIDATES = [
+# ============================================================
+# CONSTANTS
+# ============================================================
+
+DATA_CANDIDATES = [
     "data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.csv"
 ]
 
-
+# Cleaned CCC PAP-level dataset stores amounts in thousand pesos.
 DATASET_VALUE_MULTIPLIER = 1_000
 
 PRIMARY_BLUE = "#17365D"
@@ -206,6 +211,10 @@ BUDGET_CYCLE_STAGES = pd.DataFrame([
 ])
 
 
+# ============================================================
+# CSS FOR A CLEANER STREAMLIT LOOK
+# ============================================================
+
 st.markdown(
     f"""
     <style>
@@ -271,6 +280,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# ============================================================
+# BASIC FORMATTERS
+# ============================================================
 
 
 def clean_string(value):
@@ -341,6 +354,9 @@ def safe_divide(numerator, denominator):
     return numerator / denominator
 
 
+# ============================================================
+# DATA PREPARATION
+# ============================================================
 
 
 def classify_pdp_alignment(text):
@@ -523,6 +539,10 @@ def find_default_data_path():
     return None
 
 
+# ============================================================
+# DATA AGGREGATION HELPERS
+# ============================================================
+
 
 def filter_options(series):
     vals = sorted([v for v in series.dropna().unique().tolist() if clean_string(v) != ""])
@@ -623,6 +643,10 @@ def quality_mask(dataframe, issue):
     return pd.Series(False, index=f.index)
 
 
+# ============================================================
+# CHART STYLE HELPERS
+# ============================================================
+
 
 def polish_fig(fig, height=620, legend="bottom", left=80, right=55, top=25, bottom=80):
     fig.update_layout(
@@ -712,6 +736,9 @@ def chart_card(title, subtitle, fig, file_stem, source_note=None, height=620, wi
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+# ============================================================
+# FIGURE BUILDERS
+# ============================================================
 
 
 def fig_climate_budget_share(df):
@@ -1069,7 +1096,9 @@ def fig_yoy_growth(df):
     return polish_fig(fig, height=520, legend="none", right=90, bottom=70)
 
 
-
+# ============================================================
+# PDF REPORT
+# ============================================================
 
 
 def generate_pdf_report(f, filters_used):
@@ -1126,7 +1155,9 @@ def generate_pdf_report(f, filters_used):
     return buffer
 
 
-
+# ============================================================
+# MAIN APP: DATA LOAD
+# ============================================================
 
 st.title("National CCET Smart Policy Analytics Dashboard")
 st.caption("PAP-level climate budget analytics, budget-cycle traceability, NCCAP priorities, FGD/KII insights, and data quality validation")
@@ -1162,6 +1193,9 @@ with st.sidebar.expander("GRIT TAGGING check", expanded=False):
     st.write(df["GRIT TAGGING"].value_counts(dropna=False))
 
 
+# ============================================================
+# SIDEBAR FILTERS
+# ============================================================
 
 st.sidebar.header("Filters")
 
@@ -1222,7 +1256,9 @@ st.sidebar.download_button(
 )
 
 
-
+# ============================================================
+# TOP KPI CARDS
+# ============================================================
 
 total_budget = f["TOTAL"].sum()
 adaptation_total = f["ADAPTATION"].sum()
@@ -1251,7 +1287,9 @@ st.markdown(
 )
 
 
-
+# ============================================================
+# TABS
+# ============================================================
 
 tabs = st.tabs([
     "Guide",
@@ -1290,6 +1328,9 @@ tabs = st.tabs([
 ) = tabs
 
 
+# ============================================================
+# GUIDE
+# ============================================================
 
 with tab_guide:
     st.subheader("Dashboard Guide")
@@ -1313,7 +1354,9 @@ with tab_guide:
     st.dataframe(pd.DataFrame([{"Filter": k, "Selected value": v} for k, v in filters_used.items()]), use_container_width=True)
 
 
-
+# ============================================================
+# DATA PROFILE
+# ============================================================
 
 with tab_profile:
     st.subheader("Data Profile and Schema")
@@ -1339,6 +1382,9 @@ with tab_profile:
     st.dataframe(df.head(30), use_container_width=True, height=380)
 
 
+# ============================================================
+# EXECUTIVE OVERVIEW
+# ============================================================
 
 with tab_exec:
     st.subheader("Executive Overview")
@@ -1377,7 +1423,9 @@ with tab_exec:
         )
 
 
-
+# ============================================================
+# KEY FINDINGS
+# ============================================================
 
 with tab_key:
     st.subheader("Key Findings")
@@ -1418,6 +1466,10 @@ with tab_key:
         )
 
 
+# ============================================================
+# PARTICIPATION & COVERAGE
+# ============================================================
+
 with tab_participation:
     st.subheader("Participation and Coverage")
     st.markdown(
@@ -1455,6 +1507,9 @@ with tab_participation:
     st.dataframe(participation_table.sort_values(["Fiscal_Year", "GRIT TAGGING"]), use_container_width=True, height=420)
 
 
+# ============================================================
+# BUDGET CYCLE
+# ============================================================
 
 with tab_cycle:
     st.subheader("Budget Cycle Analysis")
@@ -1513,7 +1568,9 @@ with tab_cycle:
         st.dataframe(display_pivot, use_container_width=True)
 
 
-
+# ============================================================
+# AGENCY CONCENTRATION
+# ============================================================
 
 with tab_concentration:
     st.subheader("Agency Concentration")
@@ -1593,6 +1650,10 @@ with tab_concentration:
             )
 
 
+# ============================================================
+# NCCAP PRIORITIES
+# ============================================================
+
 with tab_nccap:
     st.subheader("NCCAP Thematic Priorities")
     st.markdown(
@@ -1629,7 +1690,9 @@ with tab_nccap:
         st.dataframe(priority_table, use_container_width=True, height=560)
 
 
-
+# ============================================================
+# FGD/KII CHALLENGES
+# ============================================================
 
 with tab_fgd:
     st.subheader("FGD/KII Challenges")
@@ -1656,6 +1719,9 @@ with tab_fgd:
     )
 
 
+# ============================================================
+# RECOMMENDATIONS
+# ============================================================
 
 with tab_reco:
     st.subheader("Recommendations Tracker")
@@ -1690,7 +1756,9 @@ with tab_reco:
     )
 
 
-
+# ============================================================
+# POLICY ALIGNMENT
+# ============================================================
 
 with tab_policy:
     st.subheader("PDP / Executive Agenda Proxy Alignment")
@@ -1723,7 +1791,9 @@ with tab_policy:
     st.write(", ".join(PDP_KEYWORDS))
 
 
-
+# ============================================================
+# BUDGET TRENDS
+# ============================================================
 
 with tab_trends:
     st.subheader("Budget Trends")
@@ -1760,6 +1830,10 @@ with tab_trends:
     st.dataframe(by_year, use_container_width=True)
 
 
+# ============================================================
+# PAP EXPLORER
+# ============================================================
+
 with tab_pap:
     st.subheader("PAP Explorer")
     st.markdown("Search and validate the PAP-level records behind the charts.")
@@ -1792,7 +1866,9 @@ with tab_pap:
     )
 
 
-
+# ============================================================
+# DATA QUALITY
+# ============================================================
 
 with tab_quality:
     st.subheader("Data Quality Checks")
@@ -1825,7 +1901,9 @@ with tab_quality:
     )
 
 
-
+# ============================================================
+# METHODS & RATIONALE
+# ============================================================
 
 with tab_methods:
     st.subheader("Methods, Rationale, and Data Science Application")
