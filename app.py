@@ -26,7 +26,7 @@ except ModuleNotFoundError:
 # ============================================================
 
 st.set_page_config(
-    page_title="National CCET Smart Analytics Dashboard",
+    page_title="National CCET Data Analytics Dashboard",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -533,7 +533,21 @@ def load_and_prepare_from_path(path):
 
 
 def find_default_data_path():
-    for path in DATA_CANDIDATES:
+    """Find the first available default CCET dataset.
+
+    This function is intentionally self-contained so the app will not crash
+    even if DATA_CANDIDATES is accidentally removed during deployment edits.
+    """
+    candidates = globals().get("DATA_CANDIDATES", [
+        "data/ccet_data.csv",
+        "data/Cleaned_National_CCET_PAPs_FY_2017_to_2026(1).csv",
+        "data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.csv",
+        "Cleaned_National_CCET_PAPs_FY_2017_to_2026(1).csv",
+        "Cleaned_National_CCET_PAPs_FY_2017_to_2026.csv",
+        "/mnt/data/Cleaned_National_CCET_PAPs_FY_2017_to_2026(1).csv",
+        "/mnt/data/Cleaned_National_CCET_PAPs_FY_2017_to_2026.csv",
+    ])
+    for path in candidates:
         if os.path.exists(path) and os.path.getsize(path) > 0:
             return path
     return None
